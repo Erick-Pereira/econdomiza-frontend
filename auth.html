@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Autenticação — ENCONDOMIZA</title>
+    <link rel="stylesheet" href="auth.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+  </head>
+  <body>
+    <div class="auth-container">
+      <div class="auth-card">
+        <div class="auth-left">
+          <img src="/logo-econdomiza.jpeg" alt="Logo" class="logo-large" />
+        </div>
+
+        <div class="auth-right">
+          <div class="form-screen active" id="login-screen">
+            <h2>Login</h2>
+
+            <label class="field-label">Condomínio</label>
+            <div class="condo-chosen-row">
+              <span id="loginCondoSummary" class="condo-summary condo-summary--empty">Nenhum condomínio selecionado</span>
+              <button type="button" class="btn-lookup" id="loginCondoPickBtn" title="Buscar condomínios">Buscar</button>
+            </div>
+            <input type="hidden" id="loginTenantId" value="" />
+
+            <div class="input-group">
+              <i class="fa fa-envelope"></i>
+              <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" />
+            </div>
+
+            <div class="input-group">
+              <i class="fa fa-lock"></i>
+              <input type="password" id="loginPassword" placeholder="Senha" autocomplete="current-password" />
+            </div>
+
+            <p id="login-screen-error" class="auth-screen-error" aria-live="polite"></p>
+
+            <button type="button" class="btn-main" id="loginSubmitBtn">LOGIN</button>
+
+            <p class="link-text" onclick="showScreen('forgot-screen')">
+              Esqueceu usuário / senha?
+            </p>
+
+            <p class="bottom-link" onclick="showScreen('register-screen')">
+              Criar sua conta →
+            </p>
+          </div>
+
+          <div class="form-screen" id="register-screen">
+            <h2>Criar Conta</h2>
+            <p class="form-help">Cadastro vincula você a um <strong>condomínio já existente</strong>. Para criar o primeiro condomínio, use a API <code>POST /api/auth/setup</code> ou peça ao administrador.</p>
+
+            <label class="field-label">Condomínio</label>
+            <div class="condo-chosen-row">
+              <span id="registerCondoSummary" class="condo-summary condo-summary--empty">Nenhum condomínio selecionado</span>
+              <button type="button" class="btn-lookup" id="registerCondoPickBtn">Buscar</button>
+            </div>
+            <input type="hidden" id="registerTenantId" value="" />
+
+            <div class="input-group">
+              <i class="fa fa-user"></i>
+              <input type="text" id="registerName" placeholder="Nome completo" autocomplete="name" />
+            </div>
+
+            <div class="input-group">
+              <i class="fa fa-envelope"></i>
+              <input type="email" id="registerEmail" placeholder="Email" autocomplete="email" />
+            </div>
+
+            <div class="input-group">
+              <i class="fa fa-lock"></i>
+              <input type="password" id="registerPassword" placeholder="Senha (mín. 8 caracteres)" autocomplete="new-password" />
+            </div>
+
+            <label class="field-label" for="registerRole">Perfil</label>
+            <div class="input-group">
+              <i class="fa fa-id-badge"></i>
+              <select id="registerRole" class="select-inline">
+                <option value="Sindico">Síndico</option>
+                <option value="Conselho">Conselho</option>
+              </select>
+            </div>
+
+            <p id="register-screen-error" class="auth-screen-error" aria-live="polite"></p>
+
+            <button type="button" class="btn-main" id="registerSubmitBtn">REGISTRAR</button>
+            <button class="btn-back" onclick="showScreen('login-screen')">Voltar</button>
+          </div>
+
+          <div class="form-screen" id="forgot-screen">
+            <h2>Recuperar Senha</h2>
+
+            <div class="input-group">
+              <i class="fa fa-envelope"></i>
+              <input type="email" placeholder="Digite seu email" />
+            </div>
+
+            <button type="button" class="btn-main" onclick="alert('Fluxo de recuperação em evolução.')">
+              ENVIAR
+            </button>
+            <button class="btn-back" onclick="showScreen('login-screen')">Voltar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="condo-lookup-modal" class="condo-modal" hidden aria-hidden="true">
+      <div class="condo-modal__backdrop" data-condo-modal-close tabindex="-1"></div>
+      <div
+        class="condo-modal__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="condo-modal-title"
+      >
+        <div class="condo-modal__head">
+          <h3 id="condo-modal-title">Escolher condomínio</h3>
+          <button type="button" class="condo-modal__icon-btn" data-condo-modal-close aria-label="Fechar">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+        <p class="condo-modal__lead">Filtre a lista e selecione o condomínio. Depois confirme.</p>
+        <div class="input-group condo-modal__filter">
+          <i class="fa fa-filter"></i>
+          <input
+            type="search"
+            id="condoModalFilter"
+            placeholder="Filtrar por nome ou CNPJ…"
+            autocomplete="off"
+          />
+        </div>
+        <div id="condoModalList" class="condo-modal__list" role="listbox" aria-label="Condomínios"></div>
+        <p id="condoModalError" class="condo-modal__error" aria-live="polite"></p>
+        <div class="condo-modal__actions">
+          <button type="button" class="btn-back condo-modal__btn-secondary" data-condo-modal-close>Cancelar</button>
+          <button type="button" class="btn-main condo-modal__btn-primary" id="condoModalConfirm" disabled>
+            Confirmar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/api.js"></script>
+    <script src="/auth.js"></script>
+  </body>
+</html>

@@ -1,0 +1,381 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', sans-serif;
+    height: 100vh;
+    background: linear-gradient(135deg, #235eb6, #6e6e6e);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.auth-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+}
+
+.auth-card {
+    width: 900px;
+    height: 500px;
+    background: white;
+    border-radius: 15px;
+    display: flex;
+    overflow: hidden;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+}
+
+.auth-left {
+    width: 50%;
+    background: #f9fafb;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.auth-left {
+    width: 50%;
+    background: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+}
+
+.logo-large {
+    width: 100%;
+    max-width: 520px;
+    height: auto;
+    object-fit: contain;
+}
+
+.auth-right {
+    width: 50%;
+    padding: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.form-screen {
+    width: 100%;
+    display: none;
+}
+
+.form-screen.active {
+    display: block;
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #1f2937;
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    background: #f3f4f6;
+    border-radius: 25px;
+    padding: 12px 18px;
+    margin-bottom: 15px;
+}
+
+.input-group i {
+    color: #6b7280;
+    margin-right: 10px;
+}
+
+.input-group input,
+.input-group select.select-inline {
+    border: none;
+    background: transparent;
+    width: 100%;
+    outline: none;
+}
+
+.select-inline {
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.field-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #4b5563;
+    margin: 8px 0 6px 4px;
+}
+
+.condo-chosen-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.condo-summary {
+    flex: 1;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    background: #f3f4f6;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    color: #1f2937;
+    line-height: 1.35;
+}
+
+.condo-summary--empty {
+    color: #6b7280;
+    font-style: italic;
+}
+
+.btn-lookup {
+    flex-shrink: 0;
+    padding: 0 16px;
+    min-height: 44px;
+    border-radius: 25px;
+    border: none;
+    background: #e5e7eb;
+    color: #1f2937;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-lookup:hover {
+    background: #d1d5db;
+}
+
+/* Modal escolha de condomínio */
+.condo-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.condo-modal[hidden] {
+    display: none !important;
+}
+
+.condo-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    cursor: pointer;
+}
+
+.condo-modal__panel {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 440px;
+    max-height: min(88vh, 640px);
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 20px 16px;
+}
+
+.condo-modal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.condo-modal__head h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: #1f2937;
+    text-align: left;
+}
+
+.condo-modal__icon-btn {
+    border: none;
+    background: #f3f4f6;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #4b5563;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.condo-modal__icon-btn:hover {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.condo-modal__lead {
+    font-size: 0.82rem;
+    color: #6b7280;
+    margin: 0 0 12px;
+    line-height: 1.4;
+}
+
+.condo-modal__filter {
+    margin-bottom: 10px;
+}
+
+.condo-modal__list {
+    flex: 1;
+    min-height: 120px;
+    max-height: 42vh;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fafafa;
+}
+
+.condo-modal__row {
+    width: 100%;
+    text-align: left;
+    padding: 12px 14px;
+    border: none;
+    border-bottom: 1px solid #e5e7eb;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: #1f2937;
+    line-height: 1.35;
+    display: block;
+}
+
+.condo-modal__row:last-child {
+    border-bottom: none;
+}
+
+.condo-modal__row:hover {
+    background: #f3f4f6;
+}
+
+.condo-modal__row.is-selected {
+    background: #dbeafe;
+    box-shadow: inset 3px 0 0 #235eb6;
+}
+
+.condo-modal__row-name {
+    font-weight: 600;
+}
+
+.condo-modal__row-cnpj {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+.condo-modal__error {
+    color: #ef4444;
+    font-size: 0.82rem;
+    margin: 8px 0 0;
+    min-height: 1.2em;
+}
+
+.condo-modal__actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.condo-modal__btn-secondary,
+.condo-modal__btn-primary {
+    flex: 1;
+    margin-top: 0;
+}
+
+.form-help {
+    font-size: 0.82rem;
+    color: #4b5563;
+    margin: -12px 0 16px;
+    line-height: 1.45;
+}
+
+.form-help code {
+    font-size: 0.75rem;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.auth-screen-error {
+    color: #ef4444;
+    font-size: 0.875rem;
+    margin: 8px 0;
+    text-align: center;
+    min-height: 1.25em;
+}
+
+.btn-main {
+    width: 100%;
+    background: #235eb6;
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 25px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.btn-main:hover {
+    background: #194485;
+}
+
+.btn-back {
+    width: 100%;
+    margin-top: 10px;
+    padding: 14px;
+    border: none;
+    border-radius: 25px;
+    background: #e5e7eb;
+    cursor: pointer;
+}
+
+.link-text {
+    text-align: center;
+    margin-top: 15px;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.bottom-link {
+    margin-top: 40px;
+    text-align: center;
+    color: #235eb6;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+@media (max-width: 768px) {
+    .auth-card {
+        flex-direction: column;
+        height: auto;
+        width: 100%;
+    }
+
+    .auth-left,
+    .auth-right {
+        width: 100%;
+    }
+
+    .auth-left {
+        padding: 30px;
+    }
+}

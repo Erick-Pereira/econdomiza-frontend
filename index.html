@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ENCONDOMIZA - Auditoria Inteligente para Condomínios</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="react-root" style="display:none" aria-hidden="true"></div>
+    <div id="app">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <i class="fas fa-building"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>ENCONDOMIZA</h1>
+                        <p>Auditoria Inteligente</p>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-page="auditoria">
+                    <i class="fas fa-building"></i>
+                    <span>Auditoria</span>
+                </a>
+                <a href="#" class="nav-item" data-page="fornecedores">
+                    <i class="fas fa-users"></i>
+                    <span>Fornecedores</span>
+                </a>
+                <a href="#" class="nav-item" data-page="alertas">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>Alertas</span>
+                </a>
+                <a href="#" class="nav-item" data-page="compras">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>Compras</span>
+                </a>
+                <a href="#" class="nav-item" data-page="relatorios">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Relatórios</span>
+                </a>
+                <a href="#" class="nav-item" data-page="conformidades">
+                    <i class="fas fa-check-square"></i>
+                    <span>Conformidades</span>
+                </a>
+                <a href="#" class="nav-item" data-page="configuracoes">
+                    <i class="fas fa-cog"></i>
+                    <span>Configurações</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="user-avatar">JD</div>
+                    <div class="user-info">
+                        <p class="user-name">João da Silva</p>
+                        <p class="user-role">Síndico</p>
+                    </div>
+                </div>
+                <button class="btn-logout" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Sair
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <button class="btn-menu" id="menuBtn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="header-spacer"></div>
+                <div class="header-right">
+                    <span class="welcome-text">Bem-vindo, João</span>
+                </div>
+            </header>
+
+            <!-- Pages Container -->
+            <div class="pages-container">
+                <!-- Dashboard Page -->
+                <div class="page active" id="dashboard-page">
+                    <div class="page-header">
+                        <h1>Dashboard</h1>
+                        <p>Visão geral da auditoria do seu condomínio</p>
+                    </div>
+
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-icon economy">
+                                <i class="fas fa-coins"></i>
+                            </div>
+                            <div class="metric-content">
+                                <p class="metric-label">Economia Identificada</p>
+                                <p class="metric-value" data-dashboard="totalAmount">R$ 12.450,00</p>
+                                <p class="metric-change positive">+15% este mês</p>
+                            </div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-icon alerts">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="metric-content">
+                                <p class="metric-label">Alertas Ativos</p>
+                                <p class="metric-value" data-dashboard="alertsCount">8</p>
+                                <p class="metric-change">3 de alta prioridade</p>
+                            </div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-icon audits">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                            <div class="metric-content">
+                                <p class="metric-label">Auditorias Realizadas</p>
+                                <p class="metric-value" data-dashboard="totalExpenses">24</p>
+                                <p class="metric-change">Este trimestre</p>
+                            </div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-icon suppliers">
+                                <i class="fas fa-handshake"></i>
+                            </div>
+                            <div class="metric-content">
+                                <p class="metric-label">Fornecedores</p>
+                                <p class="metric-value" data-dashboard="suppliersCount">12</p>
+                                <p class="metric-change">Cadastrados</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-grid">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2>Alertas Recentes</h2>
+                                <a href="#" class="link-more">Ver todos</a>
+                            </div>
+                            <div class="alerts-list">
+                                <div class="alert-item high">
+                                    <div class="alert-priority">Alta</div>
+                                    <div class="alert-content">
+                                        <p class="alert-title">Sobrepreço detectado</p>
+                                        <p class="alert-description">Fornecedor X com preço 25% acima do mercado</p>
+                                    </div>
+                                    <div class="alert-date">Hoje</div>
+                                </div>
+                                <div class="alert-item medium">
+                                    <div class="alert-priority">Média</div>
+                                    <div class="alert-content">
+                                        <p class="alert-title">Documentação incompleta</p>
+                                        <p class="alert-description">Fatura sem CNPJ do fornecedor</p>
+                                    </div>
+                                    <div class="alert-date">Ontem</div>
+                                </div>
+                                <div class="alert-item low">
+                                    <div class="alert-priority">Baixa</div>
+                                    <div class="alert-content">
+                                        <p class="alert-title">Conformidade pendente</p>
+                                        <p class="alert-description">Atualizar dados de contato do síndico</p>
+                                    </div>
+                                    <div class="alert-date">2 dias</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h2>Status Geral</h2>
+                            </div>
+                            <div class="status-content">
+                                <div class="status-item">
+                                    <span class="status-label">Conformidades</span>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: 85%"></div>
+                                    </div>
+                                    <span class="status-value">85%</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">Documentação</span>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: 72%"></div>
+                                    </div>
+                                    <span class="status-value">72%</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">Fornecedores Validados</span>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: 91%"></div>
+                                    </div>
+                                    <span class="status-value">91%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Auditoria Page -->
+                <div class="page" id="auditoria-page">
+                    <div class="page-header">
+                        <h1>Auditoria</h1>
+                        <p>Upload e análise de documentos com IA</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Upload de Documentos</h2>
+                        </div>
+                        <div class="upload-area" id="uploadArea">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Arraste arquivos aqui ou clique para selecionar</p>
+                            <small>Formatos aceitos: PDF, JPG, PNG, DOC</small>
+                            <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.png,.doc,.docx" style="display: none;">
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Auditorias Recentes</h2>
+                        </div>
+                        <div class="audits-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Documento</th>
+                                        <th>Data</th>
+                                        <th>Status</th>
+                                        <th>Economia</th>
+                                        <th>Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="auditoriaExpensesTbody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fornecedores Page -->
+                <div class="page" id="fornecedores-page">
+                    <div class="page-header">
+                        <h1>Fornecedores</h1>
+                        <p>Gestão e comparativo de fornecedores</p>
+                    </div>
+
+                    <div class="page-actions">
+                        <button class="btn-primary" id="addSupplierBtn">
+                            <i class="fas fa-plus"></i> Novo Fornecedor
+                        </button>
+                    </div>
+
+                    <div class="suppliers-grid" id="suppliersGridMount">
+                    </div>
+                </div>
+
+                <!-- Alertas Page -->
+                <div class="page" id="alertas-page">
+                    <div class="page-header">
+                        <h1>Alertas</h1>
+                        <p>Central de alertas classificados por prioridade</p>
+                    </div>
+
+                    <div class="alerts-filter">
+                        <button class="filter-btn active" data-filter="all">Todos</button>
+                        <button class="filter-btn" data-filter="high">Alta</button>
+                        <button class="filter-btn" data-filter="medium">Média</button>
+                        <button class="filter-btn" data-filter="low">Baixa</button>
+                    </div>
+
+                    <div class="alerts-container" data-alerts-list>
+                    </div>
+                </div>
+
+                <!-- Compras Page -->
+                <div class="page" id="compras-page">
+                    <div class="page-header">
+                        <h1>Compras</h1>
+                        <p>Histórico e comparativo de compras</p>
+                    </div>
+
+                    <div class="page-actions">
+                        <button type="button" class="btn-primary" id="registerCompraBtn" data-action="expense-register-prompt">
+                            <i class="fas fa-plus"></i> Registrar Compra
+                        </button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Compras Recentes</h2>
+                        </div>
+                        <div class="purchases-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Descrição</th>
+                                        <th>Fornecedor</th>
+                                        <th>Valor</th>
+                                        <th>Preço Mercado</th>
+                                        <th>Diferença</th>
+                                        <th>Data</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comprasExpensesTbody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Relatórios Page -->
+                <div class="page" id="relatorios-page">
+                    <div class="page-header">
+                        <h1>Relatórios</h1>
+                        <p>Geração de relatórios de auditoria</p>
+                    </div>
+
+                    <div class="page-actions">
+                        <button class="btn-primary">
+                            <i class="fas fa-download"></i> Gerar Relatório
+                        </button>
+                    </div>
+
+                    <div class="reports-grid">
+                        <div class="report-card">
+                            <div class="report-icon">
+                                <i class="fas fa-file-pdf"></i>
+                            </div>
+                            <h3>Relatório Trimestral</h3>
+                            <p>Janeiro - Março 2026</p>
+                            <div class="report-stats">
+                                <div class="stat">
+                                    <span class="stat-value">24</span>
+                                    <span class="stat-label">Auditorias</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-value">R$ 12.450</span>
+                                    <span class="stat-label">Economia</span>
+                                </div>
+                            </div>
+                            <button class="btn-small">Baixar</button>
+                        </div>
+
+                        <div class="report-card">
+                            <div class="report-icon">
+                                <i class="fas fa-file-pdf"></i>
+                            </div>
+                            <h3>Relatório Mensal</h3>
+                            <p>Abril 2026</p>
+                            <div class="report-stats">
+                                <div class="stat">
+                                    <span class="stat-value">8</span>
+                                    <span class="stat-label">Auditorias</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-value">R$ 3.850</span>
+                                    <span class="stat-label">Economia</span>
+                                </div>
+                            </div>
+                            <button class="btn-small">Baixar</button>
+                        </div>
+
+                        <div class="report-card">
+                            <div class="report-icon">
+                                <i class="fas fa-file-pdf"></i>
+                            </div>
+                            <h3>Relatório Anual</h3>
+                            <p>2025</p>
+                            <div class="report-stats">
+                                <div class="stat">
+                                    <span class="stat-value">96</span>
+                                    <span class="stat-label">Auditorias</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-value">R$ 48.200</span>
+                                    <span class="stat-label">Economia</span>
+                                </div>
+                            </div>
+                            <button class="btn-small">Baixar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Conformidades Page -->
+                <div class="page" id="conformidades-page">
+                    <div class="page-header">
+                        <h1>Conformidades</h1>
+                        <p>Checklist de conformidades legais e regulatórias</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Conformidades do Condomínio</h2>
+                        </div>
+                        <div class="conformities-list">
+                            <div class="conformity-item completed">
+                                <div class="conformity-checkbox">
+                                    <i class="fas fa-check"></i>
+                                </div>
+                                <div class="conformity-content">
+                                    <h4>Registro na Prefeitura</h4>
+                                    <p>Documentação atualizada e em dia</p>
+                                </div>
+                                <div class="conformity-date">Concluído em 15/03/2026</div>
+                            </div>
+
+                            <div class="conformity-item completed">
+                                <div class="conformity-checkbox">
+                                    <i class="fas fa-check"></i>
+                                </div>
+                                <div class="conformity-content">
+                                    <h4>Licença de Funcionamento</h4>
+                                    <p>Licença válida até 31/12/2026</p>
+                                </div>
+                                <div class="conformity-date">Concluído em 10/01/2026</div>
+                            </div>
+
+                            <div class="conformity-item pending">
+                                <div class="conformity-checkbox">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div class="conformity-content">
+                                    <h4>Auditoria Contábil</h4>
+                                    <p>Pendente de agendamento</p>
+                                </div>
+                                <div class="conformity-date">Vence em 30/05/2026</div>
+                            </div>
+
+                            <div class="conformity-item completed">
+                                <div class="conformity-checkbox">
+                                    <i class="fas fa-check"></i>
+                                </div>
+                                <div class="conformity-content">
+                                    <h4>Seguro Predial</h4>
+                                    <p>Apólice ativa e com cobertura total</p>
+                                </div>
+                                <div class="conformity-date">Concluído em 20/02/2026</div>
+                            </div>
+
+                            <div class="conformity-item pending">
+                                <div class="conformity-checkbox">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div class="conformity-content">
+                                    <h4>Certificado de Segurança</h4>
+                                    <p>Vencimento próximo</p>
+                                </div>
+                                <div class="conformity-date">Vence em 10/05/2026</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configurações Page -->
+                <div class="page" id="configuracoes-page">
+                    <div class="page-header">
+                        <h1>Configurações</h1>
+                        <p>Gerenciamento de dados e preferências</p>
+                    </div>
+
+                    <div class="settings-grid">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2>Dados do Condomínio</h2>
+                            </div>
+                            <form class="settings-form">
+                                <div class="form-group">
+                                    <label>Nome do Condomínio</label>
+                                    <input type="text" value="Condomínio Residencial Elegância" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>CNPJ</label>
+                                    <input type="text" value="12.345.678/0001-90" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Endereço</label>
+                                    <input type="text" value="Rua Principal, 123 - São Paulo, SP" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Telefone</label>
+                                    <input type="text" value="(11) 3456-7890" class="form-input">
+                                </div>
+                                <button type="submit" class="btn-primary">Salvar Alterações</button>
+                            </form>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h2>Gerenciamento de Usuários</h2>
+                            </div>
+                            <div class="users-list">
+                                <div class="user-item">
+                                    <div class="user-info">
+                                        <p class="user-name">João da Silva</p>
+                                        <p class="user-email">joao@example.com</p>
+                                    </div>
+                                    <span class="user-role-badge">Síndico</span>
+                                </div>
+                                <div class="user-item">
+                                    <div class="user-info">
+                                        <p class="user-name">Maria Santos</p>
+                                        <p class="user-email">maria@example.com</p>
+                                    </div>
+                                    <span class="user-role-badge">Conselheiro</span>
+                                </div>
+                                <div class="user-item">
+                                    <div class="user-info">
+                                        <p class="user-name">Pedro Oliveira</p>
+                                        <p class="user-email">pedro@example.com</p>
+                                    </div>
+                                    <span class="user-role-badge">Morador</span>
+                                </div>
+                            </div>
+                            <button class="btn-primary">Adicionar Usuário</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/api.js"></script>
+    <script src="/script.js"></script>
+    <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
