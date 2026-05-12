@@ -41,16 +41,61 @@
             }
 
             const response = await fetch(url, { method, headers: finalHeaders, body: payload });
-            const text = await response.text();
-            const data = text ? safeParseJson(text) : null;
+
+            let data = null;
+            try {
+                data = await response.json();
+            } catch (parseError) {
+                const text = await response.text();
+                data = text ? safeParseJson(text) : null;
+            }
 
             if (!response.ok) {
-                const error = new Error((data && (data.error || data.message)) || `HTTP ${response.status}`);
+                const message = this.extractErrorMessage(data) || `HTTP ${response.status}`;
+                const error = new Error(message);
                 error.status = response.status;
                 error.body = data;
                 throw error;
             }
+
             return data;
+        },
+
+        extractErrorMessage(data) {
+            if (!data || typeof data !== 'object') {
+                return typeof data === 'string' ? data : null;
+            }
+
+            if (typeof data.error === 'string' && data.error.trim()) {
+                return data.error;
+            }
+
+            if (typeof data.message === 'string' && data.message.trim()) {
+                return data.message;
+            }
+
+            if (Array.isArray(data.errors) && data.errors.length > 0) {
+                return data.errors.map((item) => (typeof item === 'string' ? item : JSON.stringify(item))).join(' | ');
+            }
+
+            if (data.errors && typeof data.errors === 'object') {
+                const messages = [];
+                Object.values(data.errors).forEach((value) => {
+                    if (Array.isArray(value)) {
+                        value.forEach((item) => {
+                            if (typeof item === 'string') messages.push(item);
+                            else if (item) messages.push(JSON.stringify(item));
+                        });
+                    } else if (typeof value === 'string') {
+                        messages.push(value);
+                    } else if (value && typeof value === 'object') {
+                        messages.push(JSON.stringify(value));
+                    }
+                });
+                return messages.join(' | ') || null;
+            }
+
+            return null;
         },
 
         // Auth
@@ -273,3 +318,126 @@
 
     global.SimcagApi = SimcagApi;
 })(window);
+
+
+// ======================================================
+// MOCK AUTH SYSTEM - COMENTADO PARA USAR BACKEND REAL
+// ======================================================
+
+/*
+const MOCK_USERS_KEY = "mock.users";
+const MOCK_LOGGED_KEY = "mock.loggedUser";
+
+// ================= LOGIN =================
+
+SimcagApi.login = async function (condominioId, email, password) {
+
+    await fakeDelay();
+
+    const users = JSON.parse(localStorage.getItem(MOCK_USERS_KEY)) || [];
+
+    const user = users.find(u =>
+        u.condominioId === condominioId &&
+        u.email === email &&
+        u.password === password
+    );
+
+    if (!user) {
+        throw new Error("Email ou senha inválidos");
+    }
+
+    const fakeToken = crypto.randomUUID();
+
+    localStorage.setItem("simcag.accessToken", fakeToken);
+
+    localStorage.setItem(MOCK_LOGGED_KEY, JSON.stringify(user));
+
+    return {
+        accessToken: fakeToken,
+        refreshToken: "mock-refresh-token",
+        user
+    };
+};
+
+// ================= REGISTER =================
+
+SimcagApi.register = async function ({
+    tenantId,
+    email,
+    password,
+    name,
+    role
+}) {
+
+    await fakeDelay();
+
+    const users = JSON.parse(localStorage.getItem(MOCK_USERS_KEY)) || [];
+
+    const exists = users.find(u => u.email === email);
+
+    if (exists) {
+        throw new Error("Usuário já cadastrado");
+    }
+
+    const user = {
+        id: crypto.randomUUID(),
+        condominioId: tenantId,
+        email,
+        password,
+        name,
+        role
+    };
+
+    users.push(user);
+
+    localStorage.setItem(MOCK_USERS_KEY, JSON.stringify(users));
+
+    return {
+        success: true,
+        user
+    };
+};
+
+// ================= PROFILE =================
+
+SimcagApi.profile = async function () {
+
+    await fakeDelay();
+
+    const user = JSON.parse(localStorage.getItem(MOCK_LOGGED_KEY));
+
+    if (!user) {
+        throw new Error("Usuário não autenticado");
+    }
+
+    return user;
+};
+
+// ================= CONDOMINIOS =================
+
+SimcagApi.lookupCondominios = async function () {
+
+    await fakeDelay();
+
+    return [
+        {
+            id: "cond-001",
+            name: "Condomínio Solar das Palmeiras"
+        },
+        {
+            id: "cond-002",
+            name: "Residencial Águas Claras"
+        },
+        {
+            id: "cond-003",
+            name: "Edifício Monte Bello"
+        }
+    ];
+};
+
+// ================= HELPERS =================
+
+function fakeDelay(ms = 500) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+*/
