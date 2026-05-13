@@ -1,0 +1,11 @@
+
+services:
+  web:
+    build: ./econdomiza-frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./econdomiza-frontend:/usr/src/app
+      - /usr/src/app/node_modules
+    environment:
+      - NODE_ENV=production

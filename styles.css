@@ -1,7 +1,15 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+@import "tailwindcss";
+
+/* Animação usada pelos toasts (arbitrary animation no componente) */
+@keyframes slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(0.75rem);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 :root {
@@ -57,8 +65,13 @@ body {
     line-height: 1.6;
 }
 
-/* Layout */
+/* Layout — React monta em #react-root; a shell da app usa .app */
+#react-root,
 #app {
+    min-height: 100vh;
+}
+
+.app {
     display: flex;
     min-height: 100vh;
 }
@@ -220,6 +233,111 @@ body {
     flex-direction: column;
 }
 
+/* Shell React (sidebar fixa + conteúdo) */
+.app-layout {
+    min-height: 100vh;
+    width: 100%;
+    position: relative;
+}
+
+.app-layout > .btn-menu {
+    position: fixed;
+    top: var(--spacing-md);
+    left: var(--spacing-md);
+    z-index: 1100;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-md);
+}
+
+.app-layout > .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 1050;
+}
+
+.sidebar-menu {
+    flex: 1;
+    padding: var(--spacing-sm) 0 var(--spacing-md);
+    overflow-y: auto;
+}
+
+.sidebar-menu .menu-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.sidebar-menu .menu-list li {
+    margin: 0;
+}
+
+.sidebar-menu .menu-list a {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    margin: 0 var(--spacing-sm) var(--spacing-xs);
+    border-radius: var(--radius-md);
+    color: rgba(255, 255, 255, 0.88);
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.sidebar-menu .menu-list a:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.sidebar-menu .menu-list a.active {
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    color: #fff;
+    box-shadow: var(--shadow-md);
+}
+
+.sidebar-menu .menu-list .menu-link,
+.sidebar-menu .menu-list button.menu-link {
+    width: calc(100% - 1rem);
+    margin: var(--spacing-sm) var(--spacing-sm) 0;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.9);
+    transition: background 0.2s ease;
+}
+
+.sidebar-menu .menu-list button.menu-link:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.sidebar-user {
+    padding: var(--spacing-lg);
+    margin-top: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-user .user-name,
+.sidebar-user .user-role {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.sidebar-user .user-role {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.sidebar-user .user-avatar {
+    margin-bottom: var(--spacing-sm);
+}
+
 /* Header */
 .header {
     background-color: var(--surface);
@@ -266,8 +384,9 @@ body {
     padding: var(--spacing-2xl);
 }
 
+/* SPA: cada rota monta uma única `.page` — não esconder por defeito (antes exigia `.active` estilo multi-página estático). */
 .page {
-    display: none;
+    display: block;
     animation: fadeIn 0.3s ease;
 }
 
@@ -1242,4 +1361,297 @@ table tbody tr:hover {
     font-size: 0.75rem;
     color: var(--text-secondary);
     text-transform: uppercase;
+}
+
+/* Login (ecrã completo, fora do shell da app) */
+.login-shell {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-lg);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+}
+
+.login-page {
+    width: 100%;
+    max-width: 440px;
+}
+
+.login-card {
+    background: var(--surface);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-xl);
+    box-shadow: var(--shadow-xl);
+}
+
+.login-card h2 {
+    text-align: center;
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+.login-intro {
+    margin: 0 0 var(--spacing-lg);
+    text-align: center;
+}
+
+.login-submit {
+    width: 100%;
+    margin-top: var(--spacing-md);
+}
+
+.login-advanced-toggle {
+    width: 100%;
+    margin: var(--spacing-sm) 0 var(--spacing-md);
+    padding: var(--spacing-sm);
+    border: none;
+    background: transparent;
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.field-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.condo-chosen-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.condo-summary {
+    flex: 1;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--surface-secondary);
+    border-radius: var(--radius-lg);
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    line-height: 1.35;
+    border: 1px solid var(--border);
+}
+
+.condo-summary--empty {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.btn-lookup {
+    flex-shrink: 0;
+    padding: 0 16px;
+    min-height: 44px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-lookup:hover {
+    background: var(--border);
+}
+
+.auth-screen-error {
+    color: var(--danger);
+    font-size: 0.875rem;
+    margin: var(--spacing-sm) 0;
+    text-align: center;
+}
+
+.login-card .form-actions {
+    margin-top: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.link-accent {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.link-accent:hover {
+    color: var(--primary-dark);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+/* Modal lookup condomínio (SPA) */
+.condo-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.condo-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(15, 23, 42, 0.45);
+    cursor: pointer;
+}
+
+.condo-modal__panel {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 440px;
+    max-height: min(88vh, 640px);
+    background: var(--surface);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing-lg);
+}
+
+.condo-modal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.condo-modal__head h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.condo-modal__icon-btn {
+    border: none;
+    background: var(--surface-secondary);
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.condo-modal__icon-btn:hover {
+    background: var(--border);
+    color: var(--text-primary);
+}
+
+.condo-modal__lead {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin: 0 0 12px;
+    line-height: 1.4;
+}
+
+.condo-modal__filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    color: var(--text-secondary);
+}
+
+.condo-modal__search-input {
+    flex: 1;
+    width: 100%;
+}
+
+.condo-modal__list {
+    flex: 1;
+    min-height: 120px;
+    max-height: 42vh;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--background);
+}
+
+.condo-modal__status {
+    margin: 16px;
+}
+
+.condo-modal__row {
+    width: 100%;
+    text-align: left;
+    padding: 12px 14px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    line-height: 1.35;
+    display: block;
+    font-family: inherit;
+}
+
+.condo-modal__row:last-child {
+    border-bottom: none;
+}
+
+.condo-modal__row:hover {
+    background: var(--surface-secondary);
+}
+
+.condo-modal__row.is-selected {
+    background: rgba(79, 70, 229, 0.12);
+    box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.condo-modal__row-name {
+    font-weight: 600;
+}
+
+.condo-modal__row-cnpj {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.condo-modal__actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.condo-modal__actions .btn-primary,
+.condo-modal__actions .btn-small {
+    flex: 1;
+    justify-content: center;
+}
+
+.supplier-form .field-label {
+    display: block;
+    margin-top: 0.75rem;
+}
+
+.supplier-form .field-label:first-of-type {
+    margin-top: 0;
+}
+
+.supplier-form .form-input {
+    width: 100%;
+    box-sizing: border-box;
 }

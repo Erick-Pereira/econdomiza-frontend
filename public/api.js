@@ -2,6 +2,9 @@
 // Base URL configurável: window.SIMCAG_GATEWAY ou query string ?gateway=
 (function (global) {
     const DEFAULT_GATEWAY = 'http://localhost:5000';
+    const TOKEN_KEY = 'simcag.accessToken';
+    const REFRESH_KEY = 'simcag.refreshToken';
+    const USER_KEY = 'simcag.user';
 
     function resolveGatewayBase() {
         const fromQuery = new URLSearchParams(window.location.search).get('gateway');
@@ -10,22 +13,59 @@
         return DEFAULT_GATEWAY;
     }
 
-    const SimcagApi = {
+    const EcondomizaApi = {
         baseUrl: resolveGatewayBase(),
 
         getToken() {
-            return localStorage.getItem('simcag.accessToken') || '';
+            return localStorage.getItem(TOKEN_KEY) || '';
         },
         getRefreshToken() {
-            return localStorage.getItem('simcag.refreshToken') || '';
+            return localStorage.getItem(REFRESH_KEY) || '';
+        },
+        getUser() {
+            const stored = localStorage.getItem(USER_KEY);
+            try {
+                return stored ? JSON.parse(stored) : null;
+            } catch {
+                return null;
+            }
         },
         setTokens(accessToken, refreshToken) {
-            if (accessToken) localStorage.setItem('simcag.accessToken', accessToken);
-            if (refreshToken) localStorage.setItem('simcag.refreshToken', refreshToken);
+            if (accessToken) localStorage.setItem(TOKEN_KEY, accessToken);
+            if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
+        },
+        setUser(user) {
+            if (user) {
+                localStorage.setItem(USER_KEY, JSON.stringify(user));
+            }
         },
         clearTokens() {
-            localStorage.removeItem('simcag.accessToken');
-            localStorage.removeItem('simcag.refreshToken');
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(REFRESH_KEY);
+        },
+        clearUser() {
+            localStorage.removeItem(USER_KEY);
+        },
+
+        /** Unwrap nested Simcag.ApiResponse { success, data } layers. */
+        unwrapEnvelope(json) {
+            let cur = json;
+            for (let i = 0; i < 8; i++) {
+                if (cur && typeof cur === 'object' && cur.success === true && 'data' in cur) {
+                    cur = cur.data;
+                } else break;
+            }
+            return cur;
+        },
+
+        extractTokens(payload) {
+            if (!payload || typeof payload !== 'object') return null;
+            const inner = this.unwrapEnvelope(payload);
+            if (!inner || typeof inner !== 'object') return null;
+            const access = inner.accessToken ?? inner.AccessToken;
+            const refresh = inner.refreshToken ?? inner.RefreshToken;
+            if (!access) return null;
+            return { accessToken: String(access), refreshToken: refresh != null ? String(refresh) : undefined };
         },
 
         async request(path, { method = 'GET', body = null, headers = {}, isMultipart = false } = {}) {
@@ -35,22 +75,66 @@
             if (token) finalHeaders.Authorization = `Bearer ${token}`;
 
             let payload = body;
-            if (body && !isMultipart) {
+            const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+            if (body != null && !isMultipart && !isFormData) {
                 finalHeaders['Content-Type'] = 'application/json';
                 payload = typeof body === 'string' ? body : JSON.stringify(body);
+            } else if (isFormData) {
+                payload = body;
+                delete finalHeaders['Content-Type'];
             }
 
             const response = await fetch(url, { method, headers: finalHeaders, body: payload });
+
             const text = await response.text();
             const data = text ? safeParseJson(text) : null;
 
             if (!response.ok) {
-                const error = new Error((data && (data.error || data.message)) || `HTTP ${response.status}`);
+                const message = this.extractErrorMessage(data) || `HTTP ${response.status}`;
+                const error = new Error(message);
                 error.status = response.status;
                 error.body = data;
                 throw error;
             }
+
             return data;
+        },
+
+        extractErrorMessage(data) {
+            if (!data || typeof data !== 'object') {
+                return typeof data === 'string' ? data : null;
+            }
+
+            if (typeof data.error === 'string' && data.error.trim()) {
+                return data.error;
+            }
+
+            if (typeof data.message === 'string' && data.message.trim()) {
+                return data.message;
+            }
+
+            if (Array.isArray(data.errors) && data.errors.length > 0) {
+                return data.errors.map((item) => (typeof item === 'string' ? item : JSON.stringify(item))).join(' | ');
+            }
+
+            if (data.errors && typeof data.errors === 'object') {
+                const messages = [];
+                Object.values(data.errors).forEach((value) => {
+                    if (Array.isArray(value)) {
+                        value.forEach((item) => {
+                            if (typeof item === 'string') messages.push(item);
+                            else if (item) messages.push(JSON.stringify(item));
+                        });
+                    } else if (typeof value === 'string') {
+                        messages.push(value);
+                    } else if (value && typeof value === 'object') {
+                        messages.push(JSON.stringify(value));
+                    }
+                });
+                return messages.join(' | ') || null;
+            }
+
+            return null;
         },
 
         // Auth
@@ -59,10 +143,11 @@
                 method: 'POST',
                 body: { tenantId: condominioId, email, password }
             });
-            if (result && result.accessToken) {
-                this.setTokens(result.accessToken, result.refreshToken);
+            const authData = result && result.data ? result.data : result;
+            if (authData && authData.accessToken) {
+                this.setTokens(authData.accessToken, authData.refreshToken);
             }
-            return result;
+            return authData;
         },
         /** Busca pública por nome ou CNPJ — sem JWT (gateway /api/condominios/lookup). */
         lookupCondominios(q) {
@@ -82,10 +167,9 @@
                     role: role || 'Sindico'
                 }
             });
-            if (result && result.accessToken) {
-                this.setTokens(result.accessToken, result.refreshToken);
-            }
-            return result;
+            const tokens = this.extractTokens(result);
+            if (tokens) this.setTokens(tokens.accessToken, tokens.refreshToken);
+            return this.unwrapEnvelope(result);
         },
         async logout() {
             const refreshToken = this.getRefreshToken();
@@ -93,15 +177,34 @@
                 await this.request('/api/auth/logout', { method: 'POST', body: { refreshToken } });
             } finally {
                 this.clearTokens();
+                this.clearUser();
             }
         },
         async profile() {
-            return this.request('/api/auth/profile');
+            const raw = await this.request('/api/auth/me');
+            return this.unwrapEnvelope(raw);
+        },
+
+        async getNotificationPreferences(userId) {
+            let uid = userId;
+            if (!uid) {
+                const me = await this.profile();
+                uid = me && (me.id || me.Id);
+            }
+            if (!uid) throw new Error('Cannot load notification preferences without user id');
+            const raw = await this.request(`/api/notifications/preferences?userId=${encodeURIComponent(uid)}`);
+            return this.unwrapEnvelope(raw);
         },
 
         // Condominios
         listCondominios() { return this.request('/api/condominios'); },
-        getCondominio(id) { return this.request(`/api/condominios/${id}`); },
+        getCondominio(id) { return this.request(`/api/condominios/${encodeURIComponent(id)}`); },
+        async getMyCondominio() {
+            const me = await this.profile();
+            const tenantId = me && (me.tenantId || me.TenantId);
+            if (!tenantId) throw new Error('Perfil sem tenantId (condomínio).');
+            return this.getCondominio(String(tenantId));
+        },
         createCondominio(payload) { return this.request('/api/condominios', { method: 'POST', body: payload }); },
 
         // Conformities
@@ -116,28 +219,12 @@
             });
         },
 
-        /**
-         * Agrega o read-side anual a partir de GET /api/dashboard/monthly (MView).
-         * Substitui o legado /api/dashboard/summary (inexistente no processing).
-         */
+        /** KPIs a partir de GET /api/dashboard/monthly (mesmo contrato que o bundle Vite). */
         async dashboardSummary({ year } = {}) {
             const y = year ?? new Date().getFullYear();
-            const res = await this.getMonthlyDashboard(y);
-            const rows = Array.isArray(res.rows) ? res.rows : [];
-            let totalAmount = 0;
-            let totalExpenses = 0;
-            const supplierIds = new Set();
-            for (const r of rows) {
-                totalAmount += Number(r.totalAmount) || 0;
-                totalExpenses += Number(r.expenseCount) || 0;
-                if (r.supplierId) supplierIds.add(String(r.supplierId));
-            }
-            return {
-                year: res.year ?? y,
-                totalAmount,
-                totalExpenses,
-                suppliersCount: supplierIds.size
-            };
+            const raw = await this.request(`/api/dashboard/monthly?year=${y}`);
+            const body = this.unwrapEnvelope(raw) ?? raw;
+            return buildDashboardKpisFromMonthly(body);
         },
 
         // ===== Expenses (core financeiro v2) =====
@@ -232,17 +319,38 @@
             return this.request(`/api/audit-logs${q}`);
         },
 
-        // Ingestion (upload de documentos)
-        async uploadDocument(file, { documentType = 'INVOICE', source = 'frontend' } = {}) {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('documentType', documentType);
-            formData.append('source', source);
-            return this.request('/api/ingestion/upload', {
-                method: 'POST',
-                body: formData,
-                isMultipart: true
-            });
+        // Ingestion — multipart alinhado a DocumentUploadForm (file, source, origin, tenantId)
+        async uploadDocument(file, { documentType = 'INVOICE', source = 'frontend', origin = '', tenantId: tenantIdOpt } = {}) {
+            const buildForm = async () => {
+                const form = new FormData();
+                form.append('file', file, file.name);
+                form.append('source', source);
+                const o = origin || documentType || '';
+                if (o) form.append('origin', o);
+                let tenantId = tenantIdOpt?.trim?.() || '';
+                if (!tenantId) {
+                    try {
+                        const me = await this.profile();
+                        const tid = me && (me.tenantId || me.TenantId);
+                        if (tid != null && String(tid).trim() !== '') tenantId = String(tid);
+                    } catch (_) { /* ignore */ }
+                }
+                if (tenantId) form.append('tenantId', tenantId);
+                return form;
+            };
+            const paths = ['/api/ingestion/upload', '/ingestion/upload'];
+            let lastErr;
+            for (const path of paths) {
+                try {
+                    const body = await buildForm();
+                    return await this.request(path, { method: 'POST', body, isMultipart: true });
+                } catch (err) {
+                    lastErr = err;
+                    const st = err && err.status;
+                    if (st !== 404 && st !== 405) throw err;
+                }
+            }
+            throw lastErr;
         },
 
         // Alerts
@@ -253,9 +361,20 @@
         markAlertRead(id) { return this.request(`/api/alerts/${id}/read`, { method: 'PUT' }); },
         alertStats() { return this.request('/api/alerts/stats'); },
 
-        // Notification preferences
-        getPreferences(userId) { return this.request(`/api/notifications/preferences/${userId}`); },
-        updatePreferences(payload) { return this.request('/api/notifications/preferences', { method: 'PUT', body: payload }); }
+        // Notification preferences (userId optional — resolved via /api/auth/me)
+        getPreferences(userId) { return this.getNotificationPreferences(userId); },
+        async updatePreferences(payload) {
+            const body = payload && typeof payload === 'object' ? { ...payload } : {};
+            if (!body.userId && !body.UserId) {
+                const me = await this.profile();
+                const id = me && (me.id || me.Id);
+                if (id) body.userId = id;
+            }
+            const raw = await this.request('/api/notifications/preferences', { method: 'PUT', body });
+            return this.unwrapEnvelope(raw);
+        },
+
+        /** Compras no SPA usam `listExpenses` — não existe `/api/shopping-lists` no processing. */
     };
 
     function buildQuery(obj) {
@@ -271,5 +390,174 @@
         try { return JSON.parse(text); } catch { return text; }
     }
 
+
     global.SimcagApi = SimcagApi;
 })(window);
+
+
+// ======================================================
+// MOCK AUTH SYSTEM - COMENTADO PARA USAR BACKEND REAL
+// ======================================================
+
+/*
+const MOCK_USERS_KEY = "mock.users";
+const MOCK_LOGGED_KEY = "mock.loggedUser";
+
+// ================= LOGIN =================
+
+SimcagApi.login = async function (condominioId, email, password) {
+
+    await fakeDelay();
+
+    const users = JSON.parse(localStorage.getItem(MOCK_USERS_KEY)) || [];
+
+    const user = users.find(u =>
+        u.condominioId === condominioId &&
+        u.email === email &&
+        u.password === password
+    );
+
+    if (!user) {
+        throw new Error("Email ou senha inválidos");
+    }
+
+    const fakeToken = crypto.randomUUID();
+
+    localStorage.setItem("simcag.accessToken", fakeToken);
+
+    localStorage.setItem(MOCK_LOGGED_KEY, JSON.stringify(user));
+
+    return {
+        accessToken: fakeToken,
+        refreshToken: "mock-refresh-token",
+        user
+    };
+};
+
+// ================= REGISTER =================
+
+SimcagApi.register = async function ({
+    tenantId,
+    email,
+    password,
+    name,
+    role
+}) {
+
+    await fakeDelay();
+
+    const users = JSON.parse(localStorage.getItem(MOCK_USERS_KEY)) || [];
+
+    const exists = users.find(u => u.email === email);
+
+    if (exists) {
+        throw new Error("Usuário já cadastrado");
+    }
+
+    const user = {
+        id: crypto.randomUUID(),
+        condominioId: tenantId,
+        email,
+        password,
+        name,
+        role
+    };
+
+    users.push(user);
+
+    localStorage.setItem(MOCK_USERS_KEY, JSON.stringify(users));
+
+    return {
+        success: true,
+        user
+    };
+};
+
+// ================= PROFILE =================
+
+SimcagApi.profile = async function () {
+
+    await fakeDelay();
+
+    const user = JSON.parse(localStorage.getItem(MOCK_LOGGED_KEY));
+
+    if (!user) {
+        throw new Error("Usuário não autenticado");
+    }
+
+    return user;
+};
+
+// ================= CONDOMINIOS =================
+
+SimcagApi.lookupCondominios = async function () {
+
+    await fakeDelay();
+
+    return [
+        {
+            id: "cond-001",
+            name: "Condomínio Solar das Palmeiras"
+        },
+        {
+            id: "cond-002",
+            name: "Residencial Águas Claras"
+        },
+        {
+            id: "cond-003",
+            name: "Edifício Monte Bello"
+        }
+    ];
+};
+
+// ================= HELPERS =================
+
+function fakeDelay(ms = 500) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+*/
+
+    function num(v) {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+    }
+
+    function buildDashboardKpisFromMonthly(payload) {
+        const root = payload && typeof payload === 'object' ? payload : {};
+        const rows = Array.isArray(root.rows) ? root.rows : [];
+        const y = typeof root.year === 'number' ? root.year : new Date().getFullYear();
+        let totalAmount = 0;
+        let totalExpenseLines = 0;
+        let outstanding = 0;
+        const suppliers = new Set();
+        for (const r of rows) {
+            totalAmount += num(r.totalAmount ?? r.TotalAmount);
+            totalExpenseLines += num(r.expenseCount ?? r.ExpenseCount);
+            outstanding += num(r.outstanding ?? r.Outstanding);
+            const sid = r.supplierId ?? r.SupplierId;
+            if (sid != null && String(sid) !== '00000000-0000-0000-0000-000000000000') {
+                suppliers.add(String(sid));
+            }
+        }
+        const supplierScore = suppliers.size === 0 ? 0 : Math.min(100, suppliers.size * 8);
+        const docScore = totalExpenseLines === 0 ? 0 : Math.min(100, 50 + totalExpenseLines);
+        const confScore =
+            totalAmount <= 0 ? 60 : Math.max(0, Math.min(100, Math.round(100 - (outstanding / totalAmount) * 30)));
+        const economiaIdentificada = outstanding > 0 ? outstanding : totalAmount;
+        return {
+            year: y,
+            economiaIdentificada,
+            auditoriasRealizadas: totalExpenseLines,
+            fornecedoresCadastrados: suppliers.size,
+            alertasAtivos: 0,
+            statusGeral: {
+                conformidades: `${confScore}%`,
+                documentacao: `${docScore}%`,
+                fornecedoresValidados: `${supplierScore}%`,
+            },
+        };
+    }
+
+    global.EcondomizaApi = EcondomizaApi;
+})(window);
+

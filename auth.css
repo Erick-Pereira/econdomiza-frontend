@@ -243,6 +243,30 @@ h2 {
     background: #fafafa;
 }
 
+.condo-modal__item {
+    padding: 12px;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border-bottom: 1px solid #e5e7eb;
+    color: #1f2937;
+    line-height: 1.35;
+    background: transparent;
+}
+
+.condo-modal__item:last-child {
+    border-bottom: none;
+}
+
+.condo-modal__item:hover {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.condo-modal__item.selected {
+    background: rgba(37, 99, 235, 0.12);
+    border: 1px solid #2563eb;
+}
+
 .condo-modal__row {
     width: 100%;
     text-align: left;

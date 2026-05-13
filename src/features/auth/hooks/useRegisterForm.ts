@@ -1,0 +1,131 @@
+import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { TENANT_GUID_REGEX } from '../constants';
+
+export interface RegisterFormData {
+  tenantId: string;
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+}
+
+export interface RegisterFormErrors {
+  tenantId?: string;
+  name?: string;
+  email?: string;
+  password?: string;
+  role?: string;
+  general?: string;
+}
+
+export interface UseRegisterFormReturn {
+  formData: RegisterFormData;
+  errors: RegisterFormErrors;
+  showAdvanced: boolean;
+  setFormData: Dispatch<SetStateAction<RegisterFormData>>;
+  setErrors: Dispatch<SetStateAction<RegisterFormErrors>>;
+  setShowAdvanced: Dispatch<SetStateAction<boolean>>;
+  validate: () => boolean;
+  resetForm: () => void;
+  isFormValid: boolean;
+  isEmailValid: boolean;
+  isPasswordValid: boolean;
+  isNameValid: boolean;
+  hasCondominio: boolean;
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export const useRegisterForm = (): UseRegisterFormReturn => {
+  const [formData, setFormData] = useState<RegisterFormData>({
+    tenantId: '',
+    name: '',
+    email: '',
+    password: '',
+    role: 'Sindico',
+  });
+  const [errors, setErrors] = useState<RegisterFormErrors>({});
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const isEmailValid = useMemo(() => {
+    return EMAIL_REGEX.test(formData.email);
+  }, [formData.email]);
+
+  const isPasswordValid = useMemo(() => {
+    return formData.password.length >= 8;
+  }, [formData.password]);
+
+  const isNameValid = useMemo(() => {
+    return formData.name.trim().length >= 3;
+  }, [formData.name]);
+
+  const hasCondominio = useMemo(() => {
+    const tid = formData.tenantId.trim();
+    return tid !== '' && TENANT_GUID_REGEX.test(tid);
+  }, [formData.tenantId]);
+
+  const isFormValid = useMemo(() => {
+    return hasCondominio && !!formData.email && isEmailValid && isPasswordValid && isNameValid && !!formData.role;
+  }, [formData.tenantId, formData.name, formData.email, formData.password, formData.role, hasCondominio, isEmailValid, isPasswordValid, isNameValid]);
+
+  const validate = useCallback((): boolean => {
+    const newErrors: RegisterFormErrors = {};
+
+    if (!formData.tenantId) {
+      newErrors.tenantId = 'Selecione um condomínio ou informe um Tenant ID válido.';
+    } else if (!TENANT_GUID_REGEX.test(formData.tenantId.trim())) {
+      newErrors.tenantId = 'Tenant ID inválido. Use o modal de busca.';
+    }
+
+    if (!formData.name || !isNameValid) {
+      newErrors.name = 'Nome completo deve ter no mínimo 3 caracteres.';
+    }
+
+    if (!formData.email || !isEmailValid) {
+      newErrors.email = 'E-mail é obrigatório e deve ser válido.';
+    }
+
+    if (!formData.password || !isPasswordValid) {
+      newErrors.password = 'Senha deve ter no mínimo 8 caracteres.';
+    }
+
+    if (!formData.role) {
+      newErrors.role = 'Selecione um perfil.';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [formData.tenantId, formData.name, formData.email, formData.password, formData.role, isEmailValid, isPasswordValid, isNameValid]);
+
+  const resetForm = useCallback(() => {
+    setFormData({
+      tenantId: '',
+      name: '',
+      email: '',
+      password: '',
+      role: 'Sindico',
+    });
+    setErrors({});
+    setShowAdvanced(false);
+  }, []);
+
+  useEffect(() => {
+    validate();
+  }, [formData.tenantId, formData.name, formData.email, formData.password, formData.role, validate]);
+
+  return {
+    formData,
+    errors,
+    showAdvanced,
+    setFormData,
+    setErrors,
+    setShowAdvanced,
+    validate,
+    resetForm,
+    isFormValid,
+    isEmailValid,
+    isPasswordValid,
+    isNameValid,
+    hasCondominio,
+  };
+};

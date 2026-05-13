@@ -2,277 +2,407 @@ function showScreen(screenId) {
   document.querySelectorAll('.form-screen').forEach((screen) => {
     screen.classList.remove('active');
   });
+
   const el = document.getElementById(screenId);
+
   if (el) el.classList.add('active');
-  document.getElementById('login-screen-error') && (document.getElementById('login-screen-error').textContent = '');
-  document.getElementById('register-screen-error') && (document.getElementById('register-screen-error').textContent = '');
+
+  document.getElementById('login-screen-error') &&
+    (document.getElementById('login-screen-error').textContent = '');
+
+  document.getElementById('register-screen-error') &&
+    (document.getElementById('register-screen-error').textContent = '');
 }
+
+// deixa disponível globalmente pro onclick=""
+window.showScreen = showScreen;
 
 function setLoginError(msg) {
   const p = document.getElementById('login-screen-error');
+
   if (p) p.textContent = msg || '';
 }
 
 function setRegisterError(msg) {
   const p = document.getElementById('register-screen-error');
+
   if (p) p.textContent = msg || '';
 }
 
 function formatCondoRow(c) {
-  const nome = c.nome || c.Nome || '';
+  const nome = c.nome || c.Nome || c.name || '';
   const cnpj = c.cnpj || c.Cnpj || '';
   const id = c.id || c.Id;
-  return { id: String(id), nome, cnpj, label: `${nome} — ${cnpj}` };
+
+  return {
+    id: String(id),
+    nome,
+    cnpj,
+    label: `${nome} — ${cnpj}`
+  };
 }
 
 function digitsOnly(s) {
   return String(s || '').replace(/\D/g, '');
 }
 
-/** @type {{ context: 'login'|'register'|null, all: Array<{id:string,nome:string,cnpj:string,label:string}>, selectedId: string|null }} */
-const condoModal = {
-  context: null,
-  all: [],
-  selectedId: null
-};
+// ===============================
+// MOCK DE CONDOMÍNIOS
+// ===============================
 
-function getModalEls() {
-  return {
-    root: document.getElementById('condo-lookup-modal'),
-    filter: document.getElementById('condoModalFilter'),
-    list: document.getElementById('condoModalList'),
-    err: document.getElementById('condoModalError'),
-    confirm: document.getElementById('condoModalConfirm')
-  };
-}
+const MOCK_CONDOS = [
+  {
+    id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    nome: 'Condomínio Solar das Palmeiras',
+    cnpj: '12.345.678/0001-90'
+  },
+  {
+    id: '6be8c8b2-2c7e-4a8b-9c2f-123456789abc',
+    nome: 'Residencial Águas Claras',
+    cnpj: '98.765.432/0001-10'
+  },
+  {
+    id: '9f7c2a11-8b0f-44d2-a123-abcdef123456',
+    nome: 'Edifício Monte Bello',
+    cnpj: '11.222.333/0001-44'
+  }
+];
 
-function setModalError(msg) {
-  const { err } = getModalEls();
-  if (err) err.textContent = msg || '';
-}
+// ===============================
+// EVENT LISTENERS E FUNCIONALIDADES
+// ===============================
 
-function filterCondoList(items, q) {
-  const term = (q || '').trim().toLowerCase();
-  const digitTerm = digitsOnly(q);
-  if (!term && !digitTerm) return items.slice();
-  return items.filter((row) => {
-    const nome = (row.nome || '').toLowerCase();
-    const cnpjDigits = digitsOnly(row.cnpj);
-    if (term && nome.includes(term)) return true;
-    if (digitTerm && cnpjDigits.includes(digitTerm)) return true;
-    if (term && (row.cnpj || '').toLowerCase().includes(term)) return true;
-    return false;
-  });
-}
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('auth.js carregado');
 
-function renderCondoModalList() {
-  const { list, filter, confirm } = getModalEls();
-  if (!list) return;
-  const q = filter?.value ?? '';
-  const rows = filterCondoList(condoModal.all, q);
-  list.innerHTML = '';
-  if (!rows.length) {
-    const empty = document.createElement('p');
-    empty.className = 'condo-modal__lead';
-    empty.style.margin = '16px';
-    empty.textContent = condoModal.all.length
-      ? 'Nenhum condomínio corresponde ao filtro.'
-      : 'Nenhum condomínio disponível.';
-    list.appendChild(empty);
-    if (confirm) confirm.disabled = true;
+  // Verificar se SimcagApi está disponível
+  if (typeof window.SimcagApi === 'undefined') {
+    console.error('SimcagApi não está disponível. Verifique se api.js foi carregado.');
     return;
   }
-  rows.forEach((row) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'condo-modal__row';
-    btn.setAttribute('role', 'option');
-    btn.setAttribute('aria-selected', row.id === condoModal.selectedId ? 'true' : 'false');
-    if (row.id === condoModal.selectedId) btn.classList.add('is-selected');
-    btn.dataset.id = row.id;
-    const nameEl = document.createElement('div');
-    nameEl.className = 'condo-modal__row-name';
-    nameEl.textContent = row.nome || '(sem nome)';
-    const cnpjEl = document.createElement('div');
-    cnpjEl.className = 'condo-modal__row-cnpj';
-    cnpjEl.textContent = row.cnpj || '—';
-    btn.appendChild(nameEl);
-    btn.appendChild(cnpjEl);
-    btn.addEventListener('click', () => {
-      condoModal.selectedId = row.id;
-      renderCondoModalList();
+
+  console.log('SimcagApi disponível:', window.SimcagApi);
+
+  // ===============================
+  // LOGIN
+  // ===============================
+
+  const loginBtn = document.getElementById('loginSubmitBtn');
+
+  if (loginBtn) {
+    loginBtn.addEventListener('click', async function() {
+      console.log('Botão LOGIN clicado');
+
+      setLoginError('');
+
+      const tenantId = document.getElementById('loginTenantId').value.trim();
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+
+      if (!tenantId) {
+        setLoginError('Selecione um condomínio');
+        return;
+      }
+
+      if (!email) {
+        setLoginError('Preencha o email');
+        return;
+      }
+
+      if (!password) {
+        setLoginError('Preencha a senha');
+        return;
+      }
+
+      try {
+        const payload = {
+          tenantId,
+          email,
+          password
+        };
+
+        console.log('Login payload:', payload);
+
+        const result = await window.SimcagApi.login(tenantId, email, password);
+
+        console.log('Login resposta:', result);
+
+        const authData = result;
+
+        if (authData.user) {
+          window.SimcagApi.setUser(authData.user);
+        }
+
+        console.log('Login tokens armazenados:', {
+          accessToken: !!window.SimcagApi.getToken(),
+          refreshToken: !!window.SimcagApi.getRefreshToken(),
+          user: !!window.SimcagApi.getUser()
+        });
+
+        alert('Login realizado com sucesso!');
+        window.location.href = './index.html';
+
+      } catch (error) {
+        console.error('Erro no login:', error);
+        console.error('Detalhes do erro:', error.body || error);
+
+        setLoginError(
+          error.message || 'Erro ao realizar login'
+        );
+      }
     });
-    list.appendChild(btn);
-  });
-
-  if (confirm) {
-    const visibleIds = new Set(rows.map((r) => r.id));
-    confirm.disabled = !condoModal.selectedId || !visibleIds.has(condoModal.selectedId);
-  }
-}
-
-function applySelectionToForm() {
-  if (!condoModal.context || !condoModal.selectedId) return;
-  const row = condoModal.all.find((r) => r.id === condoModal.selectedId);
-  if (!row) return;
-  const summary = document.getElementById(
-    condoModal.context === 'login' ? 'loginCondoSummary' : 'registerCondoSummary'
-  );
-  const hidden = document.getElementById(
-    condoModal.context === 'login' ? 'loginTenantId' : 'registerTenantId'
-  );
-  if (hidden) hidden.value = row.id;
-  if (summary) {
-    summary.textContent = row.label;
-    summary.classList.remove('condo-summary--empty');
-  }
-}
-
-function closeCondoModal() {
-  const { root, filter } = getModalEls();
-  if (root) {
-    root.hidden = true;
-    root.setAttribute('aria-hidden', 'true');
-  }
-  if (filter) filter.value = '';
-  condoModal.context = null;
-  condoModal.all = [];
-  condoModal.selectedId = null;
-  setModalError('');
-}
-
-async function openCondoModal(context) {
-  if (!window.SimcagApi) {
-    const errFn = context === 'login' ? setLoginError : setRegisterError;
-    errFn('Cliente API não carregado. Use npm run dev.');
-    return;
-  }
-  const { root, filter, confirm } = getModalEls();
-  if (!root) return;
-
-  condoModal.context = context;
-  condoModal.all = [];
-  condoModal.selectedId = null;
-  if (filter) filter.value = '';
-  if (confirm) confirm.disabled = true;
-  setModalError('');
-  root.hidden = false;
-  root.setAttribute('aria-hidden', 'false');
-
-  const hidden = document.getElementById(context === 'login' ? 'loginTenantId' : 'registerTenantId');
-  const current = hidden?.value?.trim() || null;
-
-  getModalEls().list.innerHTML = '';
-  const loading = document.createElement('p');
-  loading.className = 'condo-modal__lead';
-  loading.style.margin = '16px';
-  loading.textContent = 'Carregando condomínios…';
-  getModalEls().list.appendChild(loading);
-
-  try {
-    const raw = await SimcagApi.lookupCondominios('');
-    const list = Array.isArray(raw) ? raw : [];
-    condoModal.all = list.map(formatCondoRow);
-    getModalEls().list.innerHTML = '';
-    renderCondoModalList();
-    if (current && condoModal.all.some((r) => r.id === current)) {
-      condoModal.selectedId = current;
-      if (confirm) confirm.disabled = false;
-      renderCondoModalList();
-    }
-  } catch (e) {
-    getModalEls().list.innerHTML = '';
-    setModalError(e.message || 'Falha ao carregar condomínios');
+  } else {
+    console.error('Botão loginSubmitBtn não encontrado');
   }
 
-  filter?.focus();
-}
+  // ===============================
+  // REGISTRO
+  // ===============================
 
-document.addEventListener('DOMContentLoaded', () => {
-  const modalRoot = document.getElementById('condo-lookup-modal');
-  const filter = document.getElementById('condoModalFilter');
+  const registerBtn = document.getElementById('registerSubmitBtn');
 
-  document.getElementById('loginCondoPickBtn')?.addEventListener('click', () => openCondoModal('login'));
-  document.getElementById('registerCondoPickBtn')?.addEventListener('click', () => openCondoModal('register'));
+  if (registerBtn) {
+    registerBtn.addEventListener('click', async function() {
+      console.log('Botão REGISTRAR clicado');
 
-  filter?.addEventListener('input', () => {
-    const visible = filterCondoList(condoModal.all, filter.value);
-    if (condoModal.selectedId && !visible.some((r) => r.id === condoModal.selectedId)) {
-      condoModal.selectedId = null;
-    }
-    renderCondoModalList();
-  });
+      setRegisterError('');
 
-  document.getElementById('condoModalConfirm')?.addEventListener('click', () => {
-    if (!condoModal.selectedId) return;
-    applySelectionToForm();
-    closeCondoModal();
-  });
+      const tenantId = document.getElementById('registerTenantId').value.trim();
+      const name = document.getElementById('registerName').value.trim();
+      const email = document.getElementById('registerEmail').value.trim();
+      const password = document.getElementById('registerPassword').value;
+      const role = document.getElementById('registerRole').value;
 
-  modalRoot?.querySelectorAll('[data-condo-modal-close]').forEach((el) => {
-    el.addEventListener('click', () => closeCondoModal());
-  });
+      if (!tenantId) {
+        setRegisterError('Selecione um condomínio');
+        return;
+      }
 
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modalRoot && !modalRoot.hidden) {
-      e.preventDefault();
-      closeCondoModal();
-    }
-  });
+      if (!name || !email || !password || !role) {
+        setRegisterError('Preencha todos os campos');
+        return;
+      }
 
-  document.getElementById('loginSubmitBtn')?.addEventListener('click', async () => {
-    if (!window.SimcagApi) {
-      setLoginError('Cliente API não carregado. Use npm run dev e sirva com Vite.');
-      return;
-    }
-    const tenantId = document.getElementById('loginTenantId')?.value?.trim() ?? '';
-    const email = document.getElementById('loginEmail')?.value?.trim() ?? '';
-    const password = document.getElementById('loginPassword')?.value ?? '';
-    if (!tenantId) {
-      setLoginError('Abra Buscar e escolha um condomínio.');
-      return;
-    }
-    if (!email || !password) {
-      setLoginError('Preencha e-mail e senha.');
-      return;
-    }
-    setLoginError('');
+      if (password.length < 8) {
+        setRegisterError('A senha deve ter pelo menos 8 caracteres');
+        return;
+      }
+
+      try {
+
+        const payload = {
+          tenantId,
+          name,
+          email,
+          password,
+          role
+        };
+
+        console.log('Chamando SimcagApi.register com:', payload);
+
+        const result = await window.SimcagApi.register(payload);
+
+        console.log('Registro bem-sucedido:', result);
+
+        alert('Registro realizado com sucesso!');
+
+        // VOLTA PARA LOGIN
+        showScreen('login-screen');
+
+      } catch (error) {
+        console.error('Erro no registro:', error);
+
+        setRegisterError(
+          error.message || 'Erro ao realizar registro'
+        );
+      }
+    });
+  } else {
+    console.error('Botão registerSubmitBtn não encontrado');
+  }
+
+  // ===============================
+  // MODAL CONDOMÍNIO
+  // ===============================
+
+  const loginCondoPickBtn = document.getElementById('loginCondoPickBtn');
+  const registerCondoPickBtn = document.getElementById('registerCondoPickBtn');
+
+  const modal = document.getElementById('condo-lookup-modal');
+  const modalList = document.getElementById('condoModalList');
+  const modalFilter = document.getElementById('condoModalFilter');
+  const modalConfirm = document.getElementById('condoModalConfirm');
+  const modalError = document.getElementById('condoModalError');
+
+  let selectedCondo = null;
+  let currentScreen = '';
+
+  function openModal(screen) {
+    currentScreen = screen;
+
+    selectedCondo = null;
+
+    modalFilter.value = '';
+
+    modalError.textContent = '';
+
+    modalConfirm.disabled = true;
+
+    loadCondos('');
+
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  async function loadCondos(q) {
+    modalError.textContent = '';
+
+    let condos = [];
     try {
-      await SimcagApi.login(tenantId, email, password);
-      window.location.href = new URL('index.html', window.location.href).href;
-    } catch (err) {
-      setLoginError(err.message || 'Falha no login');
-    }
-  });
+      console.log('Buscando condomínios com query:', q);
 
-  document.getElementById('registerSubmitBtn')?.addEventListener('click', async () => {
-    if (!window.SimcagApi) {
-      setRegisterError('Cliente API não carregado. Use npm run dev.');
+      const response = await window.SimcagApi.lookupCondominios(q);
+
+      console.log('Condomínios encontrados:', response);
+
+      if (response && Array.isArray(response.data)) {
+        condos = response.data;
+      }
+    } catch (error) {
+      console.error('Erro ao buscar condomínios:', error);
+    }
+
+    if (!Array.isArray(condos) || condos.length === 0) {
+      condos = Array.isArray(MOCK_CONDOS) ? MOCK_CONDOS : [];
+    }
+
+    if (typeof q === 'string' && q.trim()) {
+      const query = q.trim().toLowerCase();
+      condos = condos.filter((condo) => {
+        const row = formatCondoRow(condo);
+        return (`${row.nome} ${row.cnpj}`.toLowerCase().includes(query));
+      });
+    }
+
+    renderCondos(condos);
+  }
+
+  function renderCondos(condos) {
+    modalList.innerHTML = '';
+
+    if (!Array.isArray(condos)) {
+      condos = [];
+    }
+
+    if (condos.length === 0) {
+      modalList.innerHTML = `
+        <li class="condo-modal__empty">
+          Nenhum condomínio encontrado
+        </li>
+      `;
       return;
     }
-    const tenantId = document.getElementById('registerTenantId')?.value?.trim() ?? '';
-    const name = document.getElementById('registerName')?.value?.trim() ?? '';
-    const email = document.getElementById('registerEmail')?.value?.trim() ?? '';
-    const password = document.getElementById('registerPassword')?.value ?? '';
-    const role = document.getElementById('registerRole')?.value ?? 'Sindico';
-    if (!tenantId) {
-      setRegisterError('Abra Buscar e escolha um condomínio.');
-      return;
+
+    condos.forEach((condo) => {
+      const row = formatCondoRow(condo);
+      const li = document.createElement('li');
+
+      li.className = 'condo-modal__item';
+      li.setAttribute('role', 'option');
+      li.innerHTML = `
+        <strong>${row.nome}</strong>
+        <br>
+        <small>${row.cnpj}</small>
+      `;
+
+      li.addEventListener('click', function (event) {
+        selectCondo(row, event.currentTarget);
+      });
+
+      modalList.appendChild(li);
+    });
+  }
+
+  function selectCondo(condo, element) {
+    selectedCondo = condo;
+    modalConfirm.disabled = false;
+
+    document
+      .querySelectorAll('.condo-modal__item')
+      .forEach((item) => {
+        item.classList.remove('selected');
+      });
+
+    if (element) {
+      element.classList.add('selected');
     }
-    if (!name || !email || !password) {
-      setRegisterError('Preencha nome, e-mail e senha (mín. 8 caracteres).');
-      return;
-    }
-    if (password.length < 8) {
-      setRegisterError('A senha deve ter no mínimo 8 caracteres.');
-      return;
-    }
-    setRegisterError('');
-    try {
-      await SimcagApi.register({ tenantId, email, password, name, role });
-      window.location.href = new URL('index.html', window.location.href).href;
-    } catch (err) {
-      setRegisterError(err.message || 'Falha no registro');
-    }
-  });
+  }
+
+  function closeModal() {
+    modal.hidden = true;
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  if (loginCondoPickBtn) {
+    loginCondoPickBtn.addEventListener('click', () => {
+      openModal('login');
+    });
+  }
+
+  if (registerCondoPickBtn) {
+    registerCondoPickBtn.addEventListener('click', () => {
+      openModal('register');
+    });
+  }
+
+  // ===============================
+  // FECHAR MODAL
+  // ===============================
+
+  document
+    .querySelectorAll('[data-condo-modal-close]')
+    .forEach((btn) => {
+      btn.addEventListener('click', closeModal);
+    });
+
+  // ===============================
+  // FILTRO
+  // ===============================
+
+  if (modalFilter) {
+    modalFilter.addEventListener('input', (e) => {
+      loadCondos(e.target.value);
+    });
+  }
+
+  // ===============================
+  // CONFIRMAR CONDOMÍNIO
+  // ===============================
+
+  if (modalConfirm) {
+    modalConfirm.addEventListener('click', () => {
+      if (!selectedCondo) {
+        return;
+      }
+
+      const summaryEl = document.getElementById(
+        currentScreen + 'CondoSummary'
+      );
+
+      const tenantIdEl = document.getElementById(
+        currentScreen + 'TenantId'
+      );
+
+      if (summaryEl) {
+        summaryEl.textContent = selectedCondo.label;
+        summaryEl.classList.remove('condo-summary--empty');
+      }
+
+      if (tenantIdEl) {
+        tenantIdEl.value = selectedCondo.id;
+      }
+
+      closeModal();
+    });
+  }
 });
