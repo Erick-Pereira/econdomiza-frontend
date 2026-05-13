@@ -104,50 +104,47 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
 
-      if (!email || !password) {
-        setLoginError('Preencha email e senha');
+      if (!email) {
+        setLoginError('Preencha o email');
+        return;
+      }
+
+      if (!password) {
+        setLoginError('Preencha a senha');
         return;
       }
 
       try {
-        console.log('Chamando SimcagApi.login com:', {
-          tenantId,
-          email
-        });
-
-        const result = await window.SimcagApi.login(
+        const payload = {
           tenantId,
           email,
           password
-        );
+        };
 
-        console.log('Login bem-sucedido:', result);
+        console.log('Login payload:', payload);
 
-        // ===============================
-        // SALVAR TOKENS
-        // ===============================
+        const result = await window.SimcagApi.login(tenantId, email, password);
 
-        const authData = result.data || result;
+        console.log('Login resposta:', result);
 
-        if (authData.accessToken) {
-          localStorage.setItem('accessToken', authData.accessToken);
-        }
-
-        if (authData.refreshToken) {
-          localStorage.setItem('refreshToken', authData.refreshToken);
-        }
+        const authData = result;
 
         if (authData.user) {
-          localStorage.setItem('user', JSON.stringify(authData.user));
+          window.SimcagApi.setUser(authData.user);
         }
 
-        alert('Login realizado com sucesso!');
+        console.log('Login tokens armazenados:', {
+          accessToken: !!window.SimcagApi.getToken(),
+          refreshToken: !!window.SimcagApi.getRefreshToken(),
+          user: !!window.SimcagApi.getUser()
+        });
 
-        // REDIRECIONAR
-        // window.location.href = '/dashboard.html';
+        alert('Login realizado com sucesso!');
+        window.location.href = './index.html';
 
       } catch (error) {
         console.error('Erro no login:', error);
+        console.error('Detalhes do erro:', error.body || error);
 
         setLoginError(
           error.message || 'Erro ao realizar login'

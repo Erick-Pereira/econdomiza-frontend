@@ -2,6 +2,9 @@
 // Base URL configurável: window.SIMCAG_GATEWAY ou query string ?gateway=
 (function (global) {
     const DEFAULT_GATEWAY = 'http://localhost:5000';
+    const TOKEN_KEY = 'simcag.accessToken';
+    const REFRESH_KEY = 'simcag.refreshToken';
+    const USER_KEY = 'simcag.user';
 
     function resolveGatewayBase() {
         const fromQuery = new URLSearchParams(window.location.search).get('gateway');
@@ -14,18 +17,34 @@
         baseUrl: resolveGatewayBase(),
 
         getToken() {
-            return localStorage.getItem('simcag.accessToken') || '';
+            return localStorage.getItem(TOKEN_KEY) || '';
         },
         getRefreshToken() {
-            return localStorage.getItem('simcag.refreshToken') || '';
+            return localStorage.getItem(REFRESH_KEY) || '';
+        },
+        getUser() {
+            const stored = localStorage.getItem(USER_KEY);
+            try {
+                return stored ? JSON.parse(stored) : null;
+            } catch {
+                return null;
+            }
         },
         setTokens(accessToken, refreshToken) {
-            if (accessToken) localStorage.setItem('simcag.accessToken', accessToken);
-            if (refreshToken) localStorage.setItem('simcag.refreshToken', refreshToken);
+            if (accessToken) localStorage.setItem(TOKEN_KEY, accessToken);
+            if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
+        },
+        setUser(user) {
+            if (user) {
+                localStorage.setItem(USER_KEY, JSON.stringify(user));
+            }
         },
         clearTokens() {
-            localStorage.removeItem('simcag.accessToken');
-            localStorage.removeItem('simcag.refreshToken');
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(REFRESH_KEY);
+        },
+        clearUser() {
+            localStorage.removeItem(USER_KEY);
         },
 
         async request(path, { method = 'GET', body = null, headers = {}, isMultipart = false } = {}) {
@@ -42,13 +61,8 @@
 
             const response = await fetch(url, { method, headers: finalHeaders, body: payload });
 
-            let data = null;
-            try {
-                data = await response.json();
-            } catch (parseError) {
-                const text = await response.text();
-                data = text ? safeParseJson(text) : null;
-            }
+            const text = await response.text();
+            const data = text ? safeParseJson(text) : null;
 
             if (!response.ok) {
                 const message = this.extractErrorMessage(data) || `HTTP ${response.status}`;
@@ -104,10 +118,11 @@
                 method: 'POST',
                 body: { tenantId: condominioId, email, password }
             });
-            if (result && result.accessToken) {
-                this.setTokens(result.accessToken, result.refreshToken);
+            const authData = result && result.data ? result.data : result;
+            if (authData && authData.accessToken) {
+                this.setTokens(authData.accessToken, authData.refreshToken);
             }
-            return result;
+            return authData;
         },
         /** Busca pública por nome ou CNPJ — sem JWT (gateway /api/condominios/lookup). */
         lookupCondominios(q) {
@@ -138,6 +153,7 @@
                 await this.request('/api/auth/logout', { method: 'POST', body: { refreshToken } });
             } finally {
                 this.clearTokens();
+                this.clearUser();
             }
         },
         async profile() {
