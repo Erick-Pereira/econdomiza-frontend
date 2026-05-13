@@ -300,6 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
           Nenhum condomínio encontrado
         </li>
       `;
+
       return;
     }
 

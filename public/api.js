@@ -13,6 +13,47 @@
         return DEFAULT_GATEWAY;
     }
 
+    function num(v) {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+    }
+
+    function buildDashboardKpisFromMonthly(payload) {
+        const root = payload && typeof payload === 'object' ? payload : {};
+        const rows = Array.isArray(root.rows) ? root.rows : [];
+        const y = typeof root.year === 'number' ? root.year : new Date().getFullYear();
+        let totalAmount = 0;
+        let totalExpenseLines = 0;
+        let outstanding = 0;
+        const suppliers = new Set();
+        for (const r of rows) {
+            totalAmount += num(r.totalAmount ?? r.TotalAmount);
+            totalExpenseLines += num(r.expenseCount ?? r.ExpenseCount);
+            outstanding += num(r.outstanding ?? r.Outstanding);
+            const sid = r.supplierId ?? r.SupplierId;
+            if (sid != null && String(sid) !== '00000000-0000-0000-0000-000000000000') {
+                suppliers.add(String(sid));
+            }
+        }
+        const supplierScore = suppliers.size === 0 ? 0 : Math.min(100, suppliers.size * 8);
+        const docScore = totalExpenseLines === 0 ? 0 : Math.min(100, 50 + totalExpenseLines);
+        const confScore =
+            totalAmount <= 0 ? 60 : Math.max(0, Math.min(100, Math.round(100 - (outstanding / totalAmount) * 30)));
+        const economiaIdentificada = outstanding > 0 ? outstanding : totalAmount;
+        return {
+            year: y,
+            economiaIdentificada,
+            auditoriasRealizadas: totalExpenseLines,
+            fornecedoresCadastrados: suppliers.size,
+            alertasAtivos: 0,
+            statusGeral: {
+                conformidades: `${confScore}%`,
+                documentacao: `${docScore}%`,
+                fornecedoresValidados: `${supplierScore}%`,
+            },
+        };
+    }
+
     const EcondomizaApi = {
         baseUrl: resolveGatewayBase(),
 
@@ -391,7 +432,8 @@
     }
 
 
-    global.SimcagApi = SimcagApi;
+    global.SimcagApi = EcondomizaApi;
+    global.EcondomizaApi = EcondomizaApi;
 })(window);
 
 
@@ -516,48 +558,3 @@ function fakeDelay(ms = 500) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 */
-
-    function num(v) {
-        const n = Number(v);
-        return Number.isFinite(n) ? n : 0;
-    }
-
-    function buildDashboardKpisFromMonthly(payload) {
-        const root = payload && typeof payload === 'object' ? payload : {};
-        const rows = Array.isArray(root.rows) ? root.rows : [];
-        const y = typeof root.year === 'number' ? root.year : new Date().getFullYear();
-        let totalAmount = 0;
-        let totalExpenseLines = 0;
-        let outstanding = 0;
-        const suppliers = new Set();
-        for (const r of rows) {
-            totalAmount += num(r.totalAmount ?? r.TotalAmount);
-            totalExpenseLines += num(r.expenseCount ?? r.ExpenseCount);
-            outstanding += num(r.outstanding ?? r.Outstanding);
-            const sid = r.supplierId ?? r.SupplierId;
-            if (sid != null && String(sid) !== '00000000-0000-0000-0000-000000000000') {
-                suppliers.add(String(sid));
-            }
-        }
-        const supplierScore = suppliers.size === 0 ? 0 : Math.min(100, suppliers.size * 8);
-        const docScore = totalExpenseLines === 0 ? 0 : Math.min(100, 50 + totalExpenseLines);
-        const confScore =
-            totalAmount <= 0 ? 60 : Math.max(0, Math.min(100, Math.round(100 - (outstanding / totalAmount) * 30)));
-        const economiaIdentificada = outstanding > 0 ? outstanding : totalAmount;
-        return {
-            year: y,
-            economiaIdentificada,
-            auditoriasRealizadas: totalExpenseLines,
-            fornecedoresCadastrados: suppliers.size,
-            alertasAtivos: 0,
-            statusGeral: {
-                conformidades: `${confScore}%`,
-                documentacao: `${docScore}%`,
-                fornecedoresValidados: `${supplierScore}%`,
-            },
-        };
-    }
-
-    global.EcondomizaApi = EcondomizaApi;
-})(window);
-
