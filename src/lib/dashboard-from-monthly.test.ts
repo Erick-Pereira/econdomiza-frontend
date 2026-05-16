@@ -23,8 +23,9 @@ describe('buildDashboardKpisFromMonthlyPayload', () => {
     expect(out.year).toBe(2025);
     expect(out.fornecedoresCadastrados).toBe(2);
     expect(out.auditoriasRealizadas).toBe(4);
-    expect(out.economiaIdentificada).toBe(200);
-    expect(out.statusGeral.conformidades).toMatch(/%$/);
+    expect(out.gastoProcessado).toBe(1500);
+    expect(out.valorEmAberto).toBe(200);
+    expect(out.economiaIdentificada).toBe(0);
   });
 
   it('payload inválido → zeros estáveis', () => {

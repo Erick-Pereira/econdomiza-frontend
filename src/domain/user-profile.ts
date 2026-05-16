@@ -1,6 +1,8 @@
 /**
  * Perfil do utilizador autenticado (contrato `GET /api/auth/me` após unwrap do gateway).
  * Camada de domínio leve — sem dependência de React ou HTTP.
+ *
+ * `role`: espelha o backend (Admin, Sindico, Conselho) — ver `domain/auth-roles.ts`.
  */
 
 export type AuthUserProfile = {

@@ -8,11 +8,13 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{html,json}\" \"auth.html\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"*.{html,json}\" \"auth.html\""
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.100.10",
-    "axios": "^1.16.0",
     "clsx": "^2.1.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -20,13 +22,21 @@
     "react-toastify": "^11.1.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^10.3.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "prettier": "^3.8.3",
     "tailwindcss": "^4.3.0",
     "typescript": "~5.7.2",
+    "typescript-eslint": "^8.59.3",
     "vite": "^6.0.3",
     "vitest": "^3.0.5"
   }

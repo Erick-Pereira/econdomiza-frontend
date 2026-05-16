@@ -6,7 +6,7 @@ import { useAuthSession } from '../../../context/AuthSessionContext';
 import { useLoginForm } from '../hooks/useLoginForm';
 import { useEstablishGatewaySession } from '../hooks/useEstablishGatewaySession';
 import { AUTH_COPY, isValidTenantGuid } from '../constants';
-import { Button, Input, PasswordInput, LoadingSpinner } from '../../../components/ui';
+import { Button, Input, PasswordInput, LoadingSpinner, FormError } from '../../../components/ui';
 
 export interface LoginFormProps {
   defaultTenantId?: string;
@@ -96,16 +96,15 @@ export const LoginForm: React.FC<LoginFormProps> = ({ defaultTenantId, onLoginEr
 
   const onSubmit = useCallback(
     async (e: React.FormEvent) => {
+      e.preventDefault();
       setIsLoading(true);
       const isValid = validate();
       if (!isValid) {
-        setErrors({} as FormErrors);
         setIsLoading(false);
         return;
       }
 
       await handleSubmit(e);
-      setErrors({} as FormErrors);
       setIsLoading(false);
     },
     [validate, setErrors, handleSubmit]
@@ -133,8 +132,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ defaultTenantId, onLoginEr
         <div className="login-card">
           <h2 id="login-heading">Entrar</h2>
           <p id="login-intro" className="form-help login-intro">
-            Escolha o <strong>condomínio</strong> em que vai trabalhar. Em desenvolvimento pode definir{' '}
-            <code>VITE_DEFAULT_TENANT_ID</code> no <code>.env</code>.
+            Escolha o <strong>condomínio</strong> em que vai trabalhar. 
           </p>
 
           <form onSubmit={onSubmit} aria-describedby="login-intro" noValidate>
@@ -219,7 +217,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ defaultTenantId, onLoginEr
             <PasswordInput
               label="Senha"
               id="password"
-              type="password"
               value={formData.password}
               onChange={(e) => form.setFormData((prev: LoginFormData) => ({ ...prev, password: e.target.value }))}
               error={errors.password}
@@ -229,9 +226,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ defaultTenantId, onLoginEr
             />
 
             {errors.general && (
-              <p className="auth-screen-error mt-2" role="alert">
-                {errors.general}
-              </p>
+              <div className="mt-3">
+                <FormError className="auth-screen-error">{errors.general}</FormError>
+              </div>
             )}
 
             <div className="form-actions">

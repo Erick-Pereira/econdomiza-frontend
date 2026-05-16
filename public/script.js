@@ -4,18 +4,14 @@
         const q = new URLSearchParams(window.location.search);
         if (q.get('skipAuth') === '1') sessionStorage.setItem('simcag.skipAuth', '1');
         if (sessionStorage.getItem('simcag.skipAuth') === '1') {
-            console.log('[AuthGuard] skipAuth active, skipping auth check');
             return;
         }
         if (!window.SimcagApi) {
-            console.log('[AuthGuard] SimcagApi não encontrado, redirecionando para auth.html');
             window.location.replace(new URL('auth.html', window.location.href).href);
             return;
         }
         const token = SimcagApi.getToken();
-        console.log('[AuthGuard] token encontrado:', token ? 'SIM' : 'NÃO');
         if (!token) {
-            console.log('[AuthGuard] redirecionando para auth.html');
             window.location.replace(new URL('auth.html', window.location.href).href);
         }
     } catch (_) { /* sem API em file:// */ }
@@ -221,12 +217,6 @@ document.addEventListener('keypress', (e) => {
         e.preventDefault();
     }
 });
-
-// Initialize
-console.log('ENCONDOMIZA - Sistema de Auditoria Inteligente');
-console.log('Versão 1.0.0');
-console.log('© 2026 - Todos os direitos reservados');
-console.log('SIMC-AG Gateway:', (window.EcondomizaApi && EcondomizaApi.baseUrl) || '(api.js not loaded)');
 
 // Set active sidebar item based on current route
 const setActiveSidebarItem = () => {

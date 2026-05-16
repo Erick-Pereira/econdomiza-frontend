@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { TENANT_GUID_REGEX } from '../constants';
 
 export interface LoginFormData {
@@ -95,10 +95,6 @@ export const useLoginForm = (): {
     setErrors({});
     setShowAdvanced(false);
   }, []);
-
-  useEffect(() => {
-    validate();
-  }, [formData.tenantId, formData.email, formData.password, validate]);
 
   return {
     formData,

@@ -1,6 +1,6 @@
 import { forwardRef, useState, useId, type InputHTMLAttributes, type ReactNode } from 'react';
 
-export interface PasswordInputProps extends InputHTMLAttributes<HTMLInputElement> {
+export interface PasswordInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
   label?: string;
   error?: string;
   helperText?: string;
@@ -10,7 +10,8 @@ export interface PasswordInputProps extends InputHTMLAttributes<HTMLInputElement
 export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
   ({ label, error, helperText, icon, className = '', id, ...props }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
-    const uniqueId = id || useId();
+    const autoId = useId();
+    const uniqueId = id ?? autoId;
 
     return (
       <div className={`w-full ${className}`}>

@@ -9,7 +9,8 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, helperText, icon, className = '', id, ...props }, ref) => {
-    const uniqueId = id || useId();
+    const autoId = useId();
+    const uniqueId = id ?? autoId;
 
     return (
       <div className={`w-full ${className}`}>

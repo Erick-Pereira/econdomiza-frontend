@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { DEFAULT_REGISTER_ROLE, type TenantRole } from '../../../domain/auth-roles';
 import { TENANT_GUID_REGEX } from '../constants';
 
 export interface RegisterFormData {
@@ -6,7 +7,7 @@ export interface RegisterFormData {
   name: string;
   email: string;
   password: string;
-  role: string;
+  role: TenantRole;
 }
 
 export interface RegisterFormErrors {
@@ -42,7 +43,7 @@ export const useRegisterForm = (): UseRegisterFormReturn => {
     name: '',
     email: '',
     password: '',
-    role: 'Sindico',
+    role: DEFAULT_REGISTER_ROLE,
   });
   const [errors, setErrors] = useState<RegisterFormErrors>({});
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -103,15 +104,11 @@ export const useRegisterForm = (): UseRegisterFormReturn => {
       name: '',
       email: '',
       password: '',
-      role: 'Sindico',
+      role: DEFAULT_REGISTER_ROLE,
     });
     setErrors({});
     setShowAdvanced(false);
   }, []);
-
-  useEffect(() => {
-    validate();
-  }, [formData.tenantId, formData.name, formData.email, formData.password, formData.role, validate]);
 
   return {
     formData,

@@ -9,8 +9,9 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, error, helperText, options, icon, className = '', id, children, ...props }, ref) => {
-    const uniqueId = id || useId();
+  ({ label, error, helperText, options: _options, icon, className = '', id, children, ...props }, ref) => {
+    const autoId = useId();
+    const uniqueId = id ?? autoId;
 
     return (
       <div className={`w-full ${className}`}>

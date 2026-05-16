@@ -73,15 +73,11 @@ const MOCK_CONDOS = [
 // ===============================
 
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('auth.js carregado');
-
   // Verificar se SimcagApi está disponível
   if (typeof window.SimcagApi === 'undefined') {
     console.error('SimcagApi não está disponível. Verifique se api.js foi carregado.');
     return;
   }
-
-  console.log('SimcagApi disponível:', window.SimcagApi);
 
   // ===============================
   // LOGIN
@@ -91,8 +87,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   if (loginBtn) {
     loginBtn.addEventListener('click', async function() {
-      console.log('Botão LOGIN clicado');
-
       setLoginError('');
 
       const tenantId = document.getElementById('loginTenantId').value.trim();
@@ -121,11 +115,7 @@ document.addEventListener('DOMContentLoaded', function() {
           password
         };
 
-        console.log('Login payload:', payload);
-
         const result = await window.SimcagApi.login(tenantId, email, password);
-
-        console.log('Login resposta:', result);
 
         const authData = result;
 
@@ -133,18 +123,11 @@ document.addEventListener('DOMContentLoaded', function() {
           window.SimcagApi.setUser(authData.user);
         }
 
-        console.log('Login tokens armazenados:', {
-          accessToken: !!window.SimcagApi.getToken(),
-          refreshToken: !!window.SimcagApi.getRefreshToken(),
-          user: !!window.SimcagApi.getUser()
-        });
-
         alert('Login realizado com sucesso!');
         window.location.href = './index.html';
 
       } catch (error) {
         console.error('Erro no login:', error);
-        console.error('Detalhes do erro:', error.body || error);
 
         setLoginError(
           error.message || 'Erro ao realizar login'
@@ -163,8 +146,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   if (registerBtn) {
     registerBtn.addEventListener('click', async function() {
-      console.log('Botão REGISTRAR clicado');
-
       setRegisterError('');
 
       const tenantId = document.getElementById('registerTenantId').value.trim();
@@ -198,11 +179,7 @@ document.addEventListener('DOMContentLoaded', function() {
           role
         };
 
-        console.log('Chamando SimcagApi.register com:', payload);
-
-        const result = await window.SimcagApi.register(payload);
-
-        console.log('Registro bem-sucedido:', result);
+        await window.SimcagApi.register(payload);
 
         alert('Registro realizado com sucesso!');
 
@@ -259,11 +236,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let condos = [];
     try {
-      console.log('Buscando condomínios com query:', q);
-
       const response = await window.SimcagApi.lookupCondominios(q);
-
-      console.log('Condomínios encontrados:', response);
 
       if (response && Array.isArray(response.data)) {
         condos = response.data;

@@ -1,31 +1,26 @@
-import { buildDashboardKpisFromMonthlyPayload } from './dashboard-from-monthly';
+import {
+  fetchDashboardSummaryWithFallback,
+  type DashboardSummaryResult,
+} from './api/dashboard-summary-fetch';
+import { DEFAULT_REGISTER_ROLE, type TenantRole } from '../domain/auth-roles';
+import {
+  buildQuery,
+  gatewayCorrelationId,
+  gatewayMessage,
+  parseJsonBody,
+  unwrapGatewayJson,
+} from './http';
+import { GatewayHttpError, isAuthPathNoRefresh, resolveGatewayBase } from './gateway';
 
-/**
- * Cliente HTTP do gateway SIMC-AG (substitui public/api.js no bundle Vite).
- * Base: import.meta.env.VITE_SIMCAG_GATEWAY_URL ou window.SIMCAG_GATEWAY (runtime) ou origem atual.
- */
-
-function resolveGatewayBase(): string {
-  const explicit = import.meta.env.VITE_SIMCAG_GATEWAY_URL;
-  if (typeof explicit === 'string' && explicit.trim() !== '') {
-    return explicit.replace(/\/$/, '');
-  }
-  if (typeof window !== 'undefined' && (window as unknown as { SIMCAG_GATEWAY?: string }).SIMCAG_GATEWAY) {
-    return String((window as unknown as { SIMCAG_GATEWAY: string }).SIMCAG_GATEWAY).replace(/\/$/, '');
-  }
-  return '';
-}
-
-/** Unwrap one or more nested `ApiResponse<T>` layers (`{ success, data }`). */
-function unwrapGatewayJson(json: unknown): unknown {
-  let cur: unknown = json;
-  for (let depth = 0; depth < 8; depth++) {
+function unwrapNestedApiSuccessPayload(payload: unknown): unknown {
+  let cur: unknown = payload;
+  for (let i = 0; i < 6; i++) {
     if (
       cur &&
       typeof cur === 'object' &&
       'success' in cur &&
-      'data' in cur &&
-      (cur as { success?: boolean }).success === true
+      (cur as { success?: boolean }).success === true &&
+      'data' in cur
     ) {
       cur = (cur as { data: unknown }).data;
     } else {
@@ -35,54 +30,15 @@ function unwrapGatewayJson(json: unknown): unknown {
   return cur;
 }
 
-function buildQuery(obj: Record<string, unknown> | undefined): string {
-  const q = new URLSearchParams();
-  Object.entries(obj || {}).forEach(([k, v]) => {
-    if (v !== null && v !== undefined && v !== '') q.set(k, String(v));
-  });
-  const s = q.toString();
-  return s ? `?${s}` : '';
-}
+export type { DashboardSummaryResult };
 
-function parseJsonBody(text: string): unknown {
-  try {
-    return text ? JSON.parse(text) : null;
-  } catch {
-    return text;
-  }
-}
-
-function gatewayMessage(parsed: unknown, fallback: string): string {
-  if (parsed && typeof parsed === 'object' && parsed !== null) {
-    const o = parsed as { message?: string; errors?: { message?: string }[] };
-    if (o.message) return String(o.message);
-    if (Array.isArray(o.errors) && o.errors[0]?.message) return String(o.errors[0].message);
-  }
-  return fallback;
-}
-
-function gatewayCorrelationId(parsed: unknown): string | undefined {
-  if (parsed && typeof parsed === 'object' && parsed !== null && 'metadata' in parsed) {
-    const m = (parsed as { metadata?: { correlationId?: string } }).metadata;
-    if (m?.correlationId) return String(m.correlationId);
-  }
-  return undefined;
-}
+/**
+ * Cliente HTTP do gateway SIMC-AG (substitui public/api.js no bundle Vite).
+ * Base: import.meta.env.VITE_SIMCAG_GATEWAY_URL ou window.SIMCAG_GATEWAY (runtime) ou origem atual.
+ */
 
 /** Uma única renovação em voo — fila lógica para requisições paralelas com 401. */
 let refreshInFlight: Promise<boolean> | null = null;
-
-function isAuthPathNoRefresh(path: string): boolean {
-  const p = path.startsWith('/') ? path : `/${path}`;
-  return (
-    p === '/api/auth/login' ||
-    p === '/api/auth/register' ||
-    p === '/api/auth/refresh' ||
-    p.startsWith('/api/auth/login') ||
-    p.startsWith('/api/auth/register') ||
-    p.startsWith('/api/auth/refresh')
-  );
-}
 
 const EcondomizaApi = {
   baseUrl: resolveGatewayBase(),
@@ -153,6 +109,7 @@ const EcondomizaApi = {
       body?: unknown;
       headers?: Record<string, string>;
       isMultipart?: boolean;
+      cache?: RequestCache;
       __retriedAfterRefresh?: boolean;
     } = {}
   ): Promise<{ data: T }> {
@@ -160,9 +117,15 @@ const EcondomizaApi = {
     const urlPath = path.startsWith('/') ? path : `/${path}`;
     const url = `${base}${urlPath}`;
     const { method = 'GET', body = null, headers = {}, isMultipart = false, __retriedAfterRefresh } = opts;
+    const isGet = method.toUpperCase() === 'GET';
+    const requestCache = opts.cache ?? (isGet ? 'no-store' : 'default');
     const finalHeaders: Record<string, string> = { Accept: 'application/json', ...headers };
     const token = this.getToken();
     if (token) finalHeaders.Authorization = `Bearer ${token}`;
+    if (isGet) {
+      finalHeaders['Cache-Control'] ??= 'no-cache';
+      finalHeaders.Pragma ??= 'no-cache';
+    }
 
     let payload: BodyInit | null = null;
     if (body !== null && body !== undefined) {
@@ -177,7 +140,7 @@ const EcondomizaApi = {
       }
     }
 
-    const response = await fetch(url, { method, headers: finalHeaders, body: payload });
+    const response = await fetch(url, { method, headers: finalHeaders, body: payload, cache: requestCache });
     const text = await response.text();
     const parsed = parseJsonBody(text);
 
@@ -190,16 +153,58 @@ const EcondomizaApi = {
 
     if (!response.ok) {
       const msg = gatewayMessage(parsed, `HTTP ${response.status}`);
-      const err = new Error(msg) as Error & { status?: number; body?: unknown; correlationId?: string };
-      err.status = response.status;
-      err.body = parsed;
       const cid = gatewayCorrelationId(parsed);
-      if (cid) err.correlationId = cid;
-      throw err;
+      throw new GatewayHttpError(msg, {
+        status: response.status,
+        body: parsed,
+        ...(cid ? { correlationId: cid } : {}),
+      });
     }
 
     const inner = unwrapGatewayJson(parsed) as T;
     return { data: inner };
+  },
+
+  async downloadReport(
+    period: 'monthly' | 'quarterly' | 'annual',
+    params: Record<string, unknown> = {},
+    retriedAfterRefresh = false
+  ): Promise<{ blob: Blob; filename: string }> {
+    const base = this.resolveUrl();
+    const url = `${base}/api/reports/${period}${buildQuery(params)}`;
+    const headers: Record<string, string> = { Accept: 'application/pdf' };
+    const token = this.getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+      cache: 'no-store',
+    });
+
+    if (response.status === 401 && !retriedAfterRefresh) {
+      const ok = await this.refreshSession();
+      if (ok) return this.downloadReport(period, params, true);
+    }
+
+    if (!response.ok) {
+      const text = await response.text();
+      const parsed = parseJsonBody(text);
+      const msg = gatewayMessage(parsed, `HTTP ${response.status}`);
+      const cid = gatewayCorrelationId(parsed);
+      throw new GatewayHttpError(msg, {
+        status: response.status,
+        body: parsed,
+        ...(cid ? { correlationId: cid } : {}),
+      });
+    }
+
+    const disposition = response.headers.get('Content-Disposition') ?? '';
+    const filenameMatch = /filename="?([^";]+)"?/i.exec(disposition);
+    return {
+      blob: await response.blob(),
+      filename: filenameMatch?.[1] ?? `relatorio_${period}.pdf`,
+    };
   },
 
   async login(condominioId: string, email: string, password: string) {
@@ -228,7 +233,7 @@ const EcondomizaApi = {
     email: string;
     password: string;
     name: string;
-    role?: string;
+    role?: TenantRole;
   }) {
     const result = await this.request<Record<string, unknown>>('/api/auth/register', {
       method: 'POST',
@@ -237,7 +242,7 @@ const EcondomizaApi = {
         email: params.email,
         password: params.password,
         name: params.name,
-        role: params.role || 'Sindico',
+        role: params.role ?? DEFAULT_REGISTER_ROLE,
       },
     });
     const payload = result.data && typeof result.data === 'object' ? (result.data as Record<string, unknown>) : {};
@@ -300,13 +305,20 @@ const EcondomizaApi = {
       { method: 'POST', body: { notes } }
     );
   },
+  reopenConformity(condominioId: string, itemId: string) {
+    return this.request(
+      `/api/condominios/${encodeURIComponent(condominioId)}/conformities/${encodeURIComponent(itemId)}/reopen`,
+      { method: 'POST' }
+    );
+  },
 
-  /** KPIs derivados de `GET /api/dashboard/monthly` (alinhado a `public/api.js`). */
-  async dashboardSummary(params?: { year?: number }) {
+  /**
+   * KPIs do dashboard: tenta `GET /api/dashboard/summary` (contrato em `docs/api-contracts.md`);
+   * se o gateway devolver 404/405/501, mantém compatibilidade com `GET /api/dashboard/monthly`.
+   */
+  async dashboardSummary(params?: { year?: number }): Promise<DashboardSummaryResult> {
     const y = params?.year ?? new Date().getFullYear();
-    const res = await this.request<Record<string, unknown>>(`/api/dashboard/monthly?year=${y}`);
-    const payload = res.data as unknown;
-    return { data: buildDashboardKpisFromMonthlyPayload(payload) as unknown };
+    return fetchDashboardSummaryWithFallback((path, opts) => this.request(path, opts), y);
   },
 
   listExpenses(filters: Record<string, unknown> = {}) {
@@ -314,6 +326,92 @@ const EcondomizaApi = {
   },
   getExpense(id: string) {
     return this.request(`/api/expenses/${encodeURIComponent(id)}`);
+  },
+
+  /** Snapshot de conformidade operacional (processing-service). */
+  getExpenseCompliance(expenseId: string) {
+    return this.request(`/api/expenses/${encodeURIComponent(expenseId)}/compliance`);
+  },
+
+  reevaluateExpenseCompliance(expenseId: string) {
+    return this.request(`/api/expenses/${encodeURIComponent(expenseId)}/compliance/reevaluate`, {
+      method: 'POST',
+    });
+  },
+
+  waiveExpenseComplianceFinding(expenseId: string, findingId: string, reason: string) {
+    return this.request(
+      `/api/expenses/${encodeURIComponent(expenseId)}/compliance/findings/${encodeURIComponent(findingId)}/waive`,
+      { method: 'POST', body: { reason } }
+    );
+  },
+
+  addExpenseComplianceComment(expenseId: string, findingId: string, body: string) {
+    return this.request(
+      `/api/expenses/${encodeURIComponent(expenseId)}/compliance/findings/${encodeURIComponent(findingId)}/comments`,
+      { method: 'POST', body: { body } }
+    );
+  },
+
+  setExpenseComplianceEvidence(expenseId: string, findingId: string, documentIds: string[]) {
+    return this.request(
+      `/api/expenses/${encodeURIComponent(expenseId)}/compliance/findings/${encodeURIComponent(findingId)}/evidence`,
+      { method: 'PUT', body: { documentIds } }
+    );
+  },
+
+  complianceDashboard() {
+    return this.request('/api/compliance/dashboard');
+  },
+
+  complianceFindings(filters: Record<string, unknown> = {}) {
+    return this.request(`/api/compliance/findings${buildQuery(filters)}`);
+  },
+
+  complianceRules() {
+    return this.request('/api/compliance/rules');
+  },
+
+  approveExpense(id: string) {
+    return this.request(`/api/expenses/${encodeURIComponent(id)}/approve`, { method: 'PUT' });
+  },
+
+  rejectExpense(id: string, reason: string) {
+    return this.request(`/api/expenses/${encodeURIComponent(id)}/reject`, {
+      method: 'PUT',
+      body: { reason },
+    });
+  },
+
+  cancelExpense(id: string, reason: string) {
+    return this.request(`/api/expenses/${encodeURIComponent(id)}/cancel`, {
+      method: 'PUT',
+      body: { reason },
+    });
+  },
+
+  retryExpenseProcessing(id: string) {
+    return this.request(`/api/expenses/${encodeURIComponent(id)}/retry-processing`, { method: 'POST' });
+  },
+
+  registerExpensePayment(
+    id: string,
+    body: { amount: number; paymentDate: string; method: string; referenceCode?: string | null }
+  ) {
+    return this.request<{ paymentId: string }>(
+      `/api/expenses/${encodeURIComponent(id)}/payments`,
+      { method: 'POST', body }
+    );
+  },
+
+  refundExpensePayment(id: string, paymentId: string, reason: string) {
+    return this.request(
+      `/api/expenses/${encodeURIComponent(id)}/payments/${encodeURIComponent(paymentId)}/refund`,
+      { method: 'POST', body: { reason } }
+    );
+  },
+  listProductCatalog(filters: Record<string, unknown> = {}) {
+    return this.request(`/api/products/catalog${buildQuery(filters)}`);
   },
 
   listSuppliers(filters: Record<string, unknown> = {}) {
@@ -435,42 +533,59 @@ const EcondomizaApi = {
   markAlertRead(id: string) {
     return this.request(`/api/alerts/${encodeURIComponent(id)}/read`, { method: 'PUT' });
   },
+
+  async notificationOperationalDashboard(userId: string) {
+    const res = await this.request<unknown>(
+      `/api/notifications/operational/dashboard${buildQuery({ userId })}`
+    );
+    return { data: unwrapNestedApiSuccessPayload(res.data) };
+  },
+
+  async notificationDeliveries(
+    userId: string,
+    params: { status?: string; channel?: string; page?: number; pageSize?: number } = {}
+  ) {
+    const res = await this.request<unknown>(
+      `/api/notifications/deliveries${buildQuery({ userId, ...params })}`
+    );
+    return { data: unwrapNestedApiSuccessPayload(res.data) };
+  },
+
+  async notificationGovernance() {
+    const res = await this.request<unknown>('/api/notifications/governance');
+    return { data: unwrapNestedApiSuccessPayload(res.data) };
+  },
+
+  async notificationTemplates() {
+    const res = await this.request<unknown>('/api/notifications/templates');
+    return { data: unwrapNestedApiSuccessPayload(res.data) };
+  },
+
+  async notificationRetryDelivery(deliveryId: string, userId: string) {
+    const res = await this.request<unknown>(
+      `/api/notifications/deliveries/${encodeURIComponent(deliveryId)}/retry${buildQuery({ userId })}`,
+      { method: 'POST' }
+    );
+    return { data: unwrapNestedApiSuccessPayload(res.data) };
+  },
+
+  async notificationPreferences(userId: string) {
+    const res = await this.request<unknown>(
+      `/api/notifications/preferences/${encodeURIComponent(userId)}`
+    );
+    return { data: unwrapNestedApiSuccessPayload(res.data) };
+  },
+
+  async notificationUpdatePreferences(body: Record<string, unknown>) {
+    const res = await this.request<unknown>('/api/notifications/preferences', {
+      method: 'PUT',
+      body,
+    });
+    return { data: unwrapNestedApiSuccessPayload(res.data) };
+  },
+
   alertStats() {
     return this.request('/api/alerts/stats');
-  },
-
-  async getNotificationPreferences(userIdFromCaller?: string) {
-    let userId = userIdFromCaller?.trim();
-    if (!userId) {
-      const me = await this.request<Record<string, unknown>>('/api/auth/me');
-      const inner = (me.data && typeof me.data === 'object' ? me.data : {}) as Record<string, unknown>;
-      const id = inner.id ?? inner.Id;
-      userId = id != null ? String(id) : '';
-    }
-    if (!userId) throw new Error('Cannot load notification preferences without user id');
-    return this.request(`/api/notifications/preferences${buildQuery({ userId })}`);
-  },
-
-  async updateNotificationPreferences(payload: unknown) {
-    const body: Record<string, unknown> =
-      payload && typeof payload === 'object' && !Array.isArray(payload)
-        ? { ...(payload as Record<string, unknown>) }
-        : {};
-    if (body.userId == null && body.UserId == null) {
-      const me = await this.request<Record<string, unknown>>('/api/auth/me');
-      const inner = (me.data && typeof me.data === 'object' ? me.data : {}) as Record<string, unknown>;
-      const id = inner.id ?? inner.Id;
-      if (id != null) body.userId = String(id);
-    }
-    return this.request('/api/notifications/preferences', { method: 'PUT', body });
-  },
-
-  /** @deprecated use getNotificationPreferences */
-  getPreferences(userId?: string) {
-    return this.getNotificationPreferences(userId);
-  },
-  updatePreferences(payload: unknown) {
-    return this.updateNotificationPreferences(payload);
   },
 
   getMonthlyDashboard(year: number) {
@@ -488,9 +603,18 @@ const EcondomizaApi = {
   getYearOverYear(yearsBack = 2) {
     return this.request(`/api/dashboard/year-over-year?yearsBack=${yearsBack}`);
   },
+  getOperationalInsights(params: { refresh?: boolean } = {}) {
+    const q = params.refresh === true ? '?refresh=true' : '';
+    return this.request<Record<string, unknown>>(`/api/dashboard/insights${q}`);
+  },
 
-  getMarketPrice(params: { category: string; region?: string }) {
-    return this.request(`/api/market-data/price${buildQuery(params as Record<string, unknown>)}`);
+  getOperationalInsightHistory(take = 30) {
+    return this.request<Record<string, unknown>>(`/api/dashboard/insights/history${buildQuery({ take })}`);
+  },
+
+  async narrativeOperationalInsights(body: Record<string, unknown>) {
+    const res = await this.request<unknown>('/api/ai/insights/narrative', { method: 'POST', body });
+    return { data: unwrapNestedApiSuccessPayload(res.data) };
   },
 };
 

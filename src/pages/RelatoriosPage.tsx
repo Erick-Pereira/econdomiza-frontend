@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { formatApiError } from '../lib/api-error-message';
-import { EcondomizaApi } from '../services/api';
+import { EcondomizaApi } from '../services';
+import { PageHeader } from '../components/layout/PageHeader';
+import { TableScrollHint } from '../components/layout/TableScrollHint';
 
 function formatYoyCell(v: unknown): string {
   if (v == null) return '—';
@@ -9,44 +11,41 @@ function formatYoyCell(v: unknown): string {
   }
   if (typeof v === 'boolean') return v ? 'sim' : 'não';
   if (typeof v === 'string') return v;
-  if (typeof v === 'object') return JSON.stringify(v);
+  if (typeof v === 'object') return 'dados agrupados';
   return String(v);
 }
 
-/** Visualização defensiva de /api/dashboard/year-over-year (estruturas variáveis). */
-function YearOverYearView({ data }: { data: unknown }) {
-  if (data == null) {
-    return <p className="form-help">Sem dados de comparação.</p>;
+type YearOverYearItem = {
+  year: number;
+  month: number;
+  totalAmount: number;
+};
+
+type ReportPeriod = 'monthly' | 'quarterly' | 'annual';
+
+function numberField(row: Record<string, unknown>, ...keys: string[]): number {
+  for (const key of keys) {
+    const n = Number(row[key]);
+    if (Number.isFinite(n)) return n;
   }
+  return 0;
+}
+
+function extractYearOverYearRows(data: unknown): YearOverYearItem[] {
   if (Array.isArray(data)) {
-    if (data.length === 0) {
-      return <p>Nenhum período devolvido.</p>;
-    }
-    const rows = data.filter((x) => x != null && typeof x === 'object') as Record<string, unknown>[];
-    const keys = [...new Set(rows.flatMap((r) => Object.keys(r)))].slice(0, 14);
-    return (
-      <div className="audits-table" style={{ overflowX: 'auto' }}>
-        <table>
-          <thead>
-            <tr>
-              {keys.map((k) => (
-                <th key={k}>{k}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={i}>
-                {keys.map((k) => (
-                  <td key={k}>{formatYoyCell(row[k])}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
+    return data
+      .filter((x) => x != null && typeof x === 'object')
+      .map((row) => {
+        const r = row as Record<string, unknown>;
+        return {
+          year: numberField(r, 'year', 'Year'),
+          month: numberField(r, 'month', 'Month'),
+          totalAmount: numberField(r, 'totalAmount', 'TotalAmount'),
+        };
+      })
+      .filter((row) => row.year > 0 && row.month > 0);
   }
+
   if (typeof data === 'object') {
     const o = data as Record<string, unknown>;
     const nestedArr = Object.entries(o).find(
@@ -57,28 +56,46 @@ function YearOverYearView({ data }: { data: unknown }) {
         (v as unknown[])[0] !== null
     );
     if (nestedArr) {
-      return <YearOverYearView data={nestedArr[1]} />;
+      return extractYearOverYearRows(nestedArr[1]);
     }
-    const scalars = Object.entries(o).filter(
-      ([, v]) => v != null && ['number', 'string', 'boolean'].includes(typeof v)
-    );
-    if (scalars.length > 0) {
-      return (
-        <div className="metrics-grid">
-          {scalars.map(([k, v]) => (
-            <div key={k} className="metric-card">
-              <div className="metric-header">
-                <h3>{k}</h3>
-              </div>
-              <div className="metric-value">{formatYoyCell(v)}</div>
-            </div>
-          ))}
-        </div>
-      );
-    }
-    return <p className="form-help">Estrutura aninhada não reconhecida; use o bloco de desenvolvimento para inspecionar.</p>;
   }
-  return <p>{String(data)}</p>;
+
+  return [];
+}
+
+/** Visualização defensiva de /api/dashboard/year-over-year, sem expor nomes internos do payload. */
+function YearOverYearView({ data }: { data: unknown }) {
+  const rows = extractYearOverYearRows(data);
+
+  if (rows.length === 0) {
+    return <p className="form-help">Sem dados suficientes para comparar totais entre anos.</p>;
+  }
+
+  return (
+    <>
+      <TableScrollHint />
+      <div className="audits-table table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Ano</th>
+              <th>Mês</th>
+              <th>Total processado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={`${row.year}-${row.month}`}>
+                <td>{row.year}</td>
+                <td>{String(row.month).padStart(2, '0')}</td>
+                <td>{formatYoyCell(row.totalAmount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
 }
 
 const RelatoriosPage: React.FC = () => {
@@ -87,6 +104,7 @@ const RelatoriosPage: React.FC = () => {
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   const [yoy, setYoy] = useState<unknown>(null);
   const [activeTab, setActiveTab] = useState<'resumo' | 'yoy'>('resumo');
+  const [downloading, setDownloading] = useState<ReportPeriod | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -108,33 +126,69 @@ const RelatoriosPage: React.FC = () => {
   const formatCurrency = (n: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 
+  const downloadReport = async (period: ReportPeriod) => {
+    setDownloading(period);
+    setError(null);
+    try {
+      const now = new Date();
+      const params =
+        period === 'monthly'
+          ? { year: now.getFullYear(), month: now.getMonth() + 1 }
+          : period === 'quarterly'
+            ? { year: now.getFullYear(), quarter: Math.floor(now.getMonth() / 3) + 1 }
+            : { year: now.getFullYear() };
+      const result = await EcondomizaApi.downloadReport(period, params);
+      const url = URL.createObjectURL(result.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(formatApiError(err));
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="relatorios-loading">
-        <p>A carregar…</p>
+      <div className="page page-state" id="relatorios-page">
+        <p>Carregando relatórios…</p>
+        <div className="skeleton-card" style={{ width: '100%', maxWidth: 560 }}>
+          <div className="skeleton-block" style={{ width: '55%' }} />
+          <div className="skeleton-block" style={{ width: '100%' }} />
+          <div className="skeleton-block" style={{ width: '72%' }} />
+        </div>
       </div>
     );
   }
 
   if (error && !summary) {
     return (
-      <div className="relatorios-error">
+      <div className="page page-state page-state--error" id="relatorios-page">
         <p>{error}</p>
-        <button type="button" onClick={() => window.location.reload()}>
+        <button type="button" className="btn-primary" onClick={() => window.location.reload()}>
           Tentar novamente
         </button>
       </div>
     );
   }
 
-  const econ = Number(summary?.economiaIdentificada ?? 0);
+  const gastoProcessado = Number(summary?.gastoProcessado ?? 0);
+  const valorEmAberto = Number(summary?.valorEmAberto ?? 0);
 
   return (
     <div className="page" id="relatorios-page">
-      <div className="page-header">
-        <h1>Relatórios</h1>
-        <p>Indicadores agregados a partir do gateway (dados reais quando o backend estiver disponível)</p>
-      </div>
+      <PageHeader
+        title="Relatórios"
+        description="Indicadores consolidados e exportação em PDF do período atual, para o seu condomínio."
+        quickLinks={[{ to: '/dashboard', label: 'Painel' }]}
+      />
+
+      {error && summary && <div className="banner banner--error">{error}</div>}
 
       <div className="tabs">
         <button type="button" className={activeTab === 'resumo' ? 'tab active' : 'tab'} onClick={() => setActiveTab('resumo')}>
@@ -149,9 +203,12 @@ const RelatoriosPage: React.FC = () => {
         <div className="metrics-grid">
           <div className="metric-card">
             <div className="metric-header">
-              <h3>Economia identificada</h3>
+              <h3>Gasto processado</h3>
             </div>
-            <div className="metric-value">{formatCurrency(econ)}</div>
+            <div className="metric-value">{formatCurrency(gastoProcessado)}</div>
+            <p className="form-help" style={{ margin: 0 }}>
+              Em aberto: {formatCurrency(valorEmAberto)}
+            </p>
           </div>
           <div className="metric-card">
             <div className="metric-header">
@@ -167,7 +224,7 @@ const RelatoriosPage: React.FC = () => {
           </div>
           <div className="metric-card">
             <div className="metric-header">
-              <h3>Fornecedores</h3>
+              <h3>Fornecedores cadastrados</h3>
             </div>
             <div className="metric-value">{String(summary.fornecedoresCadastrados ?? 0)}</div>
           </div>
@@ -179,40 +236,47 @@ const RelatoriosPage: React.FC = () => {
           <div className="card-header">
             <h2>Ano contra ano</h2>
             <p className="form-help" style={{ margin: 0 }}>
-              Dados de <code>GET /api/dashboard/year-over-year</code>
+              Totais mensais consolidados para comparar o mesmo mês em anos diferentes.
             </p>
           </div>
           <YearOverYearView data={yoy} />
-          {import.meta.env.DEV && yoy != null && (
-            <details style={{ marginTop: 16 }}>
-              <summary style={{ cursor: 'pointer' }}>JSON bruto (desenvolvimento)</summary>
-              <pre
-                style={{
-                  padding: 16,
-                  overflow: 'auto',
-                  fontSize: 12,
-                  background: '#0f172a',
-                  color: '#e2e8f0',
-                  borderRadius: 8,
-                  marginTop: 8,
-                }}
-              >
-                {JSON.stringify(yoy, null, 2)}
-              </pre>
-            </details>
-          )}
         </div>
       )}
 
-      <div className="card" style={{ marginTop: 24 }}>
+      <div className="card mt-section">
         <div className="card-header">
-          <h2>Relatórios PDF</h2>
+          <h2>Relatórios em PDF</h2>
         </div>
         <p>
-          Geração de PDF por período: <code>GET /api/reports/&lt;monthly|quarterly|yearly&gt;</code> (ver{' '}
-          <code>docs/api-contracts.md</code>). O download pode ser ligado aqui quando o endpoint estiver estável no teu
-          ambiente.
+          Gere arquivos PDF para arquivo ou reuniões do condomínio. O conteúdo considera o período indicado e as
+          despesas vinculadas ao seu acesso atual.
         </p>
+        <div className="report-download-row">
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={downloading !== null}
+            onClick={() => void downloadReport('monthly')}
+          >
+            {downloading === 'monthly' ? 'Gerando PDF…' : 'Baixar mensal (PDF)'}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={downloading !== null}
+            onClick={() => void downloadReport('quarterly')}
+          >
+            {downloading === 'quarterly' ? 'Gerando PDF…' : 'Baixar trimestral (PDF)'}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={downloading !== null}
+            onClick={() => void downloadReport('annual')}
+          >
+            {downloading === 'annual' ? 'Gerando PDF…' : 'Baixar anual (PDF)'}
+          </button>
+        </div>
       </div>
     </div>
   );

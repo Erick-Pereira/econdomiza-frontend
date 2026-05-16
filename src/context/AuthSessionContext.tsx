@@ -1,6 +1,14 @@
-import React, { createContext, useCallback, useMemo, useState, useEffect, useRef, type ReactNode } from 'react';
-import { clearAllClientSession } from '../lib/browser-session';
-import { EcondomizaApi } from '../services/api';
+import React, {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { clearAllClientSession, SESSION_STORAGE_KEYS } from '../lib/browser-session';
+import { EcondomizaApi } from '../services';
 
 export interface UserProfile {
   id: string;
@@ -47,8 +55,6 @@ export const REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutos antes de expirar
 
 export const AuthSessionContext = createContext<AuthSessionValue & { actions: AuthSessionActions } | null>(null);
 
-let refreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
-
 export const AuthSessionProvider: React.FC<AuthSessionProviderProps> = ({
   children,
   initialProfile,
@@ -59,13 +65,100 @@ export const AuthSessionProvider: React.FC<AuthSessionProviderProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loginCount, setLoginCount] = useState(0);
-  const lastRefreshTime = useRef<Date | null>(null);
+  /** Último login ou renovação bem-sucedida de tokens (ISO), para contexto sem refs em `useMemo`. */
+  const [lastLoginAt, setLastLoginAt] = useState<string | null>(null);
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleRefreshTokenRef = useRef<() => Promise<boolean>>(async () => false);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await EcondomizaApi.logout();
+    } catch (err) {
+      console.error('Erro ao logout no gateway:', err);
+    }
+
+    setProfile(null);
+    setTokens(null);
+    setLoginCount(0);
+    setLastLoginAt(null);
+    clearAllClientSession();
+
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleRefresh = useCallback(
+    (remainingMs: number) => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+
+      const thresholdMs = sessionTimeoutMs - REFRESH_THRESHOLD_MS;
+      if (remainingMs > thresholdMs) {
+        refreshTimeoutRef.current = setTimeout(() => {
+          void handleRefreshTokenRef.current();
+        }, REFRESH_THRESHOLD_MS - remainingMs);
+      }
+    },
+    [sessionTimeoutMs]
+  );
+
+  const handleRefreshToken = useCallback(async (): Promise<boolean> => {
+    if (!tokens?.refreshToken) return false;
+
+    /** `refreshSession` lê `GATEWAY_TOKEN_KEYS`; estado espelhado em `SESSION_STORAGE_KEYS.tokens`. */
+    EcondomizaApi.setTokens(tokens.accessToken, tokens.refreshToken);
+
+    try {
+      setIsRefreshing(true);
+      const ok = await EcondomizaApi.refreshSession();
+      if (!ok) {
+        await handleLogout();
+        return false;
+      }
+
+      const accessToken = EcondomizaApi.getToken();
+      if (!accessToken) {
+        await handleLogout();
+        return false;
+      }
+
+      const refreshNext = EcondomizaApi.getRefreshToken() || undefined;
+      const expiresIn = 3600;
+      const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+      const next: AuthTokens = {
+        accessToken,
+        refreshToken: refreshNext ?? tokens.refreshToken,
+        expiresIn,
+        expiresAt,
+      };
+
+      setTokens(next);
+      localStorage.setItem(SESSION_STORAGE_KEYS.tokens, JSON.stringify(next));
+      setLastLoginAt(new Date().toISOString());
+      scheduleRefresh(expiresIn * 1000);
+
+      return true;
+    } catch (err) {
+      console.error('Erro ao refresh token:', err);
+      await handleLogout();
+      return false;
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [tokens, scheduleRefresh, handleLogout]);
+
+  useEffect(() => {
+    handleRefreshTokenRef.current = handleRefreshToken;
+  }, [handleRefreshToken]);
 
   // Persistir sessão no localStorage
   useEffect(() => {
-    const storedProfile = localStorage.getItem('econdomiza_profile');
-    const storedTokens = localStorage.getItem('econdomiza_tokens');
-    const storedLoginCount = localStorage.getItem('econdomiza_login_count');
+    const storedProfile = localStorage.getItem(SESSION_STORAGE_KEYS.profile);
+    const storedTokens = localStorage.getItem(SESSION_STORAGE_KEYS.tokens);
+    const storedLoginCount = localStorage.getItem(SESSION_STORAGE_KEYS.loginCount);
 
     if (storedProfile && storedTokens && storedLoginCount) {
       try {
@@ -85,113 +178,32 @@ export const AuthSessionProvider: React.FC<AuthSessionProviderProps> = ({
         const remaining = expiresAt.getTime() - now.getTime();
 
         if (remaining <= 0) {
-          handleLogout();
+          void handleLogout();
         } else {
           // Agendar refresh antes da expiração
           scheduleRefresh(remaining);
         }
       } catch (err) {
         console.error('Erro ao restaurar sessão:', err);
-        handleLogout();
+        void handleLogout();
       }
     } else {
       setIsLoading(false);
     }
-  }, []);
-
-  const scheduleRefresh = useCallback(
-    (remainingMs: number) => {
-      if (refreshTimeoutId) {
-        clearTimeout(refreshTimeoutId);
-      }
-
-      const thresholdMs = sessionTimeoutMs - REFRESH_THRESHOLD_MS;
-      if (remainingMs > thresholdMs) {
-        refreshTimeoutId = setTimeout(async () => {
-          await handleRefreshToken();
-        }, REFRESH_THRESHOLD_MS - remainingMs);
-      }
-    },
-    [sessionTimeoutMs]
-  );
-
-  const handleRefreshToken = useCallback(async (): Promise<boolean> => {
-    if (!tokens?.refreshToken) return false;
-
-    try {
-      setIsRefreshing(true);
-      const response = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${tokens.refreshToken}`,
-        },
-      });
-
-      if (response.ok) {
-        const newTokensData = await response.json();
-        const { accessToken, refreshToken: newRefreshToken, expiresIn, expiresAt, ...rest } = newTokensData;
-        const expiresAtDate = new Date(Date.now() + expiresIn * 1000).toISOString();
-
-        const nextRefresh = newRefreshToken || tokens.refreshToken;
-        EcondomizaApi.setTokens(String(accessToken), nextRefresh != null ? String(nextRefresh) : undefined);
-
-        setTokens({ accessToken, refreshToken: newRefreshToken || tokens.refreshToken, expiresIn, expiresAt: expiresAtDate });
-        localStorage.setItem('econdomiza_tokens', JSON.stringify({ accessToken, refreshToken: newRefreshToken || tokens.refreshToken, expiresIn, expiresAt: expiresAtDate, ...rest }));
-
-        lastRefreshTime.current = new Date();
-        scheduleRefresh(expiresIn * 1000);
-
-        return true;
-      } else {
-        // Refresh falhou, faça logout
-        handleLogout();
-        return false;
-      }
-    } catch (err) {
-      console.error('Erro ao refresh token:', err);
-      handleLogout();
-      return false;
-    } finally {
-      setIsRefreshing(false);
-      if (refreshTimeoutId) {
-        clearTimeout(refreshTimeoutId);
-        refreshTimeoutId = null;
-      }
-    }
-  }, [tokens?.refreshToken, sessionTimeoutMs]);
-
-  const handleLogout = useCallback(async () => {
-    try {
-      await EcondomizaApi.logout();
-    } catch (err) {
-      console.error('Erro ao logout no gateway:', err);
-    }
-
-    setProfile(null);
-    setTokens(null);
-    setLoginCount(0);
-    clearAllClientSession();
-    lastRefreshTime.current = null;
-
-    if (refreshTimeoutId) {
-      clearTimeout(refreshTimeoutId);
-      refreshTimeoutId = null;
-    }
-  }, []);
+  }, [handleLogout, scheduleRefresh]);
 
   const handleLogin = useCallback(async (newProfile: UserProfile, newTokens: AuthTokens) => {
     setProfile(newProfile);
     setTokens(newTokens);
     setLoginCount((prev) => {
       const next = prev + 1;
-      localStorage.setItem('econdomiza_login_count', String(next));
+      localStorage.setItem(SESSION_STORAGE_KEYS.loginCount, String(next));
       return next;
     });
-    localStorage.setItem('econdomiza_profile', JSON.stringify(newProfile));
-    localStorage.setItem('econdomiza_tokens', JSON.stringify(newTokens));
+    localStorage.setItem(SESSION_STORAGE_KEYS.profile, JSON.stringify(newProfile));
+    localStorage.setItem(SESSION_STORAGE_KEYS.tokens, JSON.stringify(newTokens));
 
-    lastRefreshTime.current = new Date();
+    setLastLoginAt(new Date().toISOString());
     const expiresAt = new Date(newTokens.expiresAt);
     scheduleRefresh(expiresAt.getTime() - Date.now());
 
@@ -200,7 +212,7 @@ export const AuthSessionProvider: React.FC<AuthSessionProviderProps> = ({
 
   const handleUpdateProfile = useCallback((updatedProfile: UserProfile) => {
     setProfile(updatedProfile);
-    localStorage.setItem('econdomiza_profile', JSON.stringify(updatedProfile));
+    localStorage.setItem(SESSION_STORAGE_KEYS.profile, JSON.stringify(updatedProfile));
   }, []);
 
   const actions = useMemo(
@@ -221,11 +233,11 @@ export const AuthSessionProvider: React.FC<AuthSessionProviderProps> = ({
       isAuthenticated: !!profile && !!tokens,
       isLoading,
       isRefreshing,
-      lastLogin: lastRefreshTime.current ? lastRefreshTime.current.toISOString() : null,
+      lastLogin: lastLoginAt,
       loginCount,
       actions,
     }),
-    [profile, tokens, isLoading, isRefreshing, lastRefreshTime.current, loginCount, actions]
+    [profile, tokens, isLoading, isRefreshing, lastLoginAt, loginCount, actions]
   );
 
   return (

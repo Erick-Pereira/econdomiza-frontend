@@ -3,7 +3,7 @@ import { Suspense, type ReactNode } from 'react';
 export function RouteFallback() {
   return (
     <div className="page" style={{ padding: '1.5rem' }}>
-      <p>A carregar…</p>
+      <p>Carregando…</p>
     </div>
   );
 }

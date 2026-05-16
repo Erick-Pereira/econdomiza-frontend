@@ -1,14 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  formatAlertDatePtBr,
+  mapSeverityToDashboardLevel,
+  severityUpperFromAlertRow,
+} from '../lib/alert-row';
 import { normalizeListPayload } from '../lib/api-normalize';
 import { formatApiError } from '../lib/api-error-message';
 import type { DashboardKpiPayload } from '../lib/dashboard-from-monthly';
-import { EcondomizaApi } from '../services/api';
-
-interface StatusItem {
-  label: string;
-  value: string;
-}
+import { enrichMonthlyKpisWithActiveAlertCount } from '../lib/dashboard-kpi-merge';
+import { EcondomizaApi } from '../services';
+import { PageHeader } from '../components/layout/PageHeader';
+import { PageFatalErrorState, PageLoadingState } from '../components/layout/PageLoadStates';
 
 interface AlertItem {
   id: string;
@@ -21,153 +24,169 @@ interface AlertItem {
 const moneyBr = (n: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 
+function emptyDashboardKpis(year: number): DashboardKpiPayload {
+  return {
+    year,
+    economiaIdentificada: 0,
+    gastoProcessado: 0,
+    valorEmAberto: 0,
+    auditoriasRealizadas: 0,
+    fornecedoresCadastrados: 0,
+    alertasAtivos: 0,
+  };
+}
+
+/** Contrato summary (`alertasAltaPrioridade`) ou contagem na lista carregada. */
+function highPriorityDisplay(kpis: DashboardKpiPayload, alerts: AlertItem[]): number {
+  if (typeof kpis.alertasAltaPrioridade === 'number') return kpis.alertasAltaPrioridade;
+  return alerts.filter((a) => a.severity === 'high').length;
+}
+
 const DashboardPage: React.FC = () => {
   const [kpis, setKpis] = useState<DashboardKpiPayload | null>(null);
-  const [statusItems, setStatusItems] = useState<StatusItem[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [alertsFetchError, setAlertsFetchError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setAlertsFetchError(null);
 
-        try {
-          const summaryResult = await EcondomizaApi.dashboardSummary();
-          const s = summaryResult.data as DashboardKpiPayload;
-          setKpis(s);
-          setStatusItems([
-            { label: 'Conformidades', value: s.statusGeral.conformidades },
-            { label: 'Documentação', value: s.statusGeral.documentacao },
-            { label: 'Fornecedores Validados', value: s.statusGeral.fornecedoresValidados },
-          ]);
-        } catch (e) {
-          console.error('Dashboard KPIs failed:', e);
-          setKpis({
-            year: new Date().getFullYear(),
-            economiaIdentificada: 0,
-            auditoriasRealizadas: 0,
-            fornecedoresCadastrados: 0,
-            alertasAtivos: 0,
-            statusGeral: {
-              conformidades: '0%',
-              documentacao: '0%',
-              fornecedoresValidados: '0%',
-            },
-          });
-          setStatusItems([
-            { label: 'Conformidades', value: '0%' },
-            { label: 'Documentação', value: '0%' },
-            { label: 'Fornecedores Validados', value: '0%' },
-          ]);
-          setError(formatApiError(e));
-        }
+    const settled = await Promise.allSettled([
+      EcondomizaApi.dashboardSummary(),
+      EcondomizaApi.listAlerts({ pageSize: 50 }),
+    ]);
 
-        try {
-          const alertsResult = await EcondomizaApi.listAlerts({ pageSize: 50 });
-          const alertList = normalizeListPayload(alertsResult.data);
-          const alertItems: AlertItem[] = (alertList as Record<string, unknown>[]).map((alert) => {
-            const sev = String(alert.severity ?? 'WARNING').toUpperCase();
-            const mapped: 'high' | 'medium' | 'low' =
-              sev === 'CRITICAL' ? 'high' : sev === 'WARNING' ? 'medium' : 'low';
-            return {
-              id: String(alert.id ?? ''),
-              type: String(alert.type ?? 'Alerta'),
-              message: String(alert.message ?? ''),
-              createdAt: String(alert.createdAt ?? ''),
-              severity: mapped,
-            };
-          });
-          setAlerts(alertItems);
-        } catch (e) {
-          console.error('Alerts list failed:', e);
-          setAlerts([]);
-        }
-      } finally {
-        setLoading(false);
+    let rawRows: Record<string, unknown>[] = [];
+    let alertItems: AlertItem[] = [];
+    let alertsErr: string | null = null;
+
+    if (settled[1].status === 'fulfilled') {
+      const alertList = normalizeListPayload(settled[1].value.data);
+      rawRows = alertList.filter((r) => r != null && typeof r === 'object') as Record<string, unknown>[];
+      alertItems = rawRows.map((alert) => {
+        const sev = severityUpperFromAlertRow(alert);
+        const mapped = mapSeverityToDashboardLevel(sev);
+        return {
+          id: String(alert.id ?? ''),
+          type: String(alert.type ?? 'Alerta'),
+          message: String(alert.message ?? ''),
+          createdAt: String(alert.createdAt ?? ''),
+          severity: mapped,
+        };
+      });
+    } else {
+      const reason = settled[1].status === 'rejected' ? settled[1].reason : new Error('Unknown');
+      console.error('Dashboard alerts failed:', reason);
+      alertsErr = formatApiError(reason);
+    }
+    setAlerts(alertItems);
+    setAlertsFetchError(alertsErr);
+
+    if (settled[0].status === 'fulfilled') {
+      const summaryRes = settled[0].value;
+      let nextKpis = summaryRes.data;
+      if (summaryRes.kpiSource === 'monthly') {
+        nextKpis = enrichMonthlyKpisWithActiveAlertCount(nextKpis, rawRows);
       }
-    };
+      setKpis(nextKpis);
+      setError(null);
+    } else {
+      const reason = settled[0].status === 'rejected' ? settled[0].reason : new Error('Unknown');
+      console.error('Dashboard KPIs failed:', reason);
+      setError(formatApiError(reason));
+      setKpis(emptyDashboardKpis(new Date().getFullYear()));
+    }
 
-    void fetchData();
+    setLoading(false);
   }, []);
 
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
+
   if (loading && kpis === null) {
-    return (
-      <div className="dashboard-loading">
-        <p>Carregando dados do dashboard...</p>
-      </div>
-    );
+    return <PageLoadingState id="dashboard-page" message="Carregando indicadores…" skeletonMaxWidth={520} />;
   }
 
   if (!kpis) {
     return (
-      <div className="dashboard-error">
-        <p>{error ?? 'Sem dados do dashboard.'}</p>
-        <button type="button" onClick={() => window.location.reload()}>
-          Tentar novamente
-        </button>
-      </div>
+      <PageFatalErrorState
+        id="dashboard-page"
+        message={error ?? 'Sem dados do dashboard.'}
+        onRetry={() => void fetchData()}
+      />
     );
   }
+
+  const highPriority = highPriorityDisplay(kpis, alerts);
 
   return (
     <>
       <div className="page" id="dashboard-page">
-        <div className="page-header">
-          <h1>Dashboard</h1>
-          <p>Visão geral da auditoria do seu condomínio</p>
-        </div>
+        <PageHeader
+          eyebrow="Início"
+          title="Painel principal"
+          description="Um olhar rápido sobre o que importa agora: valores, alertas e atalhos."
+          toolbar={
+            <button type="button" className="btn-small" disabled={loading} onClick={() => void fetchData()}>
+              {loading ? 'A atualizar…' : 'Atualizar'}
+            </button>
+          }
+        />
 
-        {error && (
-          <div className="card" style={{ marginBottom: 16, color: 'crimson' }}>
-            {error}
+        {error && <div className="banner banner--error">{error}</div>}
+        {alertsFetchError && (
+          <div className="banner banner--info" role="status">
+            Não foi possível carregar os alertas recentes neste momento. Os números do resumo mantêm-se. Detalhe:{' '}
+            {alertsFetchError}
           </div>
         )}
 
         <div className="metrics-grid">
           <div className="metric-card">
             <div className="metric-icon economy">
-              <i className="fas fa-coins"></i>
+              <i className="fas fa-coins" />
             </div>
             <div className="metric-content">
-              <p className="metric-label">Economia Identificada</p>
-              <p className="metric-value">{moneyBr(kpis.economiaIdentificada)}</p>
-              <p className="metric-change">Referência: dashboard do gateway</p>
+              <p className="metric-label">Gasto processado</p>
+              <p className="metric-value">{moneyBr(kpis.gastoProcessado)}</p>
+              <p className="metric-change">Em aberto: {moneyBr(kpis.valorEmAberto)}</p>
             </div>
           </div>
 
           <div className="metric-card">
             <div className="metric-icon alerts">
-              <i className="fas fa-exclamation-triangle"></i>
+              <i className="fas fa-exclamation-triangle" />
             </div>
             <div className="metric-content">
-              <p className="metric-label">Alertas Ativos</p>
+              <p className="metric-label">Alertas ativos</p>
               <p className="metric-value">{kpis.alertasAtivos}</p>
-              <p className="metric-change">{alerts.filter((a) => a.severity === 'high').length} de alta prioridade</p>
+              <p className="metric-change">{highPriority} marcados como urgentes</p>
             </div>
           </div>
 
           <div className="metric-card">
             <div className="metric-icon audits">
-              <i className="fas fa-file-alt"></i>
+              <i className="fas fa-file-alt" />
             </div>
             <div className="metric-content">
-              <p className="metric-label">Auditorias Realizadas</p>
+              <p className="metric-label">Auditorias</p>
               <p className="metric-value">{kpis.auditoriasRealizadas}</p>
-              <p className="metric-change">Este trimestre</p>
+              <p className="metric-change">Total no período do resumo</p>
             </div>
           </div>
 
           <div className="metric-card">
             <div className="metric-icon suppliers">
-              <i className="fas fa-handshake"></i>
+              <i className="fas fa-handshake" />
             </div>
             <div className="metric-content">
               <p className="metric-label">Fornecedores</p>
               <p className="metric-value">{kpis.fornecedoresCadastrados}</p>
-              <p className="metric-change">Cadastrados</p>
+              <p className="metric-change">Cadastro interno (sem validação automática)</p>
             </div>
           </div>
         </div>
@@ -191,12 +210,14 @@ const DashboardPage: React.FC = () => {
                       <p className="alert-title">{alert.type}</p>
                       <p className="alert-description">{alert.message}</p>
                     </div>
-                    <div className="alert-date">{new Date(alert.createdAt).toLocaleDateString('pt-BR')}</div>
+                    <div className="alert-date">{formatAlertDatePtBr(alert.createdAt)}</div>
                   </div>
                 ))
               ) : (
-                <p className="form-help" style={{ padding: '0.75rem 0', margin: 0 }}>
-                  Nenhum alerta listado neste momento.
+                <p className="empty-state" style={{ margin: 0 }}>
+                  {alertsFetchError
+                    ? 'Lista de alertas indisponível neste momento.'
+                    : 'Sem alertas para mostrar.'}
                 </p>
               )}
             </div>
@@ -204,21 +225,16 @@ const DashboardPage: React.FC = () => {
 
           <div className="card">
             <div className="card-header">
-              <h2>Status Geral</h2>
+              <h2>Obrigações e vistorias</h2>
             </div>
-            <div className="status-content">
-              {statusItems.map((item, index) => (
-                <div key={index} className="status-item">
-                  <span className="status-label">{item.label}</span>
-                  <div className="progress-bar">
-                    <div
-                      className="progress-fill"
-                      style={{ width: `${parseInt(item.value.replace('%', ''), 10) || 0}%` }}
-                    ></div>
-                  </div>
-                  <span className="status-value">{item.value}</span>
-                </div>
-              ))}
+            <div className="status-content" style={{ display: 'grid', gap: '1rem' }}>
+              <p style={{ margin: 0, fontSize: '1rem', lineHeight: 1.55, color: 'var(--text-primary)' }}>
+                Vencimentos de AVCB, elevadores, licenças e outras obrigações legais — num só sítio, com checklist e
+                calendário.
+              </p>
+              <Link to="/conformidades" className="btn-small">
+                Abrir obrigações
+              </Link>
             </div>
           </div>
         </div>

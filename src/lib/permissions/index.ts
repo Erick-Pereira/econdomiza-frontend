@@ -1,0 +1,1 @@
+export { roleAllowsAuditDocumentUpload } from './rbac';

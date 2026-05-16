@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { filterCondoList, type CondoRow, parseLookupData } from '../../lib/condominio-lookup';
 import { formatApiError } from '../../lib/api-error-message';
-import { EcondomizaApi } from '../../services/api';
+import { EcondomizaApi } from '../../services';
 
 export interface CondominioLookupModalProps {
   open: boolean;
@@ -117,7 +117,7 @@ export const CondominioLookupModal: React.FC<CondominioLookupModalProps> = ({
           />
         </div>
         <div className="condo-modal__list" role="listbox" aria-label="Condomínios">
-          {loading && <p className="condo-modal__lead condo-modal__status">A carregar condomínios…</p>}
+          {loading && <p className="condo-modal__lead condo-modal__status">Carregando condomínios…</p>}
           {error && !loading && <p className="auth-screen-error condo-modal__status">{error}</p>}
           {!loading && !error && visibleRows.length === 0 && (
             <p className="condo-modal__lead condo-modal__status">{emptyMessage}</p>

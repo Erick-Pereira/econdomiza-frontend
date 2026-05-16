@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { normalizeListPayload } from '../lib/api-normalize';
 import { formatApiError } from '../lib/api-error-message';
-import { EcondomizaApi } from '../services/api';
+import { EcondomizaApi } from '../services';
+import { PageHeader } from '../components/layout/PageHeader';
 
 interface SupplierItem {
   id: string;
@@ -167,17 +168,21 @@ const FornecedoresPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="fornecedores-loading">
-        <p>Carregando dados de fornecedores...</p>
+      <div className="page page-state" id="fornecedores-page">
+        <p>Carregando fornecedores…</p>
+        <div className="skeleton-card" style={{ width: '100%', maxWidth: 520 }}>
+          <div className="skeleton-block" style={{ width: '50%' }} />
+          <div className="skeleton-block" style={{ width: '100%' }} />
+        </div>
       </div>
     );
   }
 
   if (error && !suppliers.length) {
     return (
-      <div className="fornecedores-error">
+      <div className="page page-state page-state--error" id="fornecedores-page">
         <p>{error}</p>
-        <button type="button" onClick={() => window.location.reload()}>
+        <button type="button" className="btn-primary" onClick={() => window.location.reload()}>
           Tentar novamente
         </button>
       </div>
@@ -188,21 +193,33 @@ const FornecedoresPage: React.FC = () => {
 
   return (
     <div className="page" id="fornecedores-page">
-      <div className="page-header">
-        <h1>Fornecedores</h1>
-        <p>Gestão e comparativo de fornecedores</p>
-      </div>
+      <PageHeader
+        title="Fornecedores"
+        description="Cadastro para uso operacional nas despesas. Cadastro ativo não significa validação documental."
+        quickLinks={[
+          { to: '/compras', label: 'Compras' },
+          { to: '/produtos', label: 'Produtos' },
+          { to: '/auditoria', label: 'Auditoria' },
+        ]}
+      />
 
       {error && suppliers.length > 0 && (
-        <p className="auth-screen-error" style={{ marginBottom: '1rem' }} role="alert">
+        <div className="banner banner--error" role="alert">
           {error}
-        </p>
+        </div>
       )}
 
       <div className="page-actions">
         <button type="button" className="btn-primary" id="addSupplierBtn" onClick={openCreate}>
           <i className="fas fa-plus" aria-hidden /> Novo Fornecedor
         </button>
+      </div>
+
+      <div className="card mt-section">
+        <p className="form-help" style={{ margin: 0 }}>
+          O sistema ainda não possui critérios formais de validação documental, integração externa ou aprovação manual
+          de fornecedores. Esta página indica apenas fornecedores cadastrados e ativos para uso nos lançamentos.
+        </p>
       </div>
 
       <div className="suppliers-grid" id="suppliersGridMount">
@@ -213,7 +230,7 @@ const FornecedoresPage: React.FC = () => {
                 <h3>{supplier.name}</h3>
                 <div className="rating">
                   <span className="supplier-doc-label">
-                    {supplier.document
+                    Cadastro ativo · {supplier.document
                       ? supplier.document.replace(/\D/g, '').length === 14
                         ? 'CNPJ'
                         : supplier.document.replace(/\D/g, '').length === 11
@@ -354,7 +371,7 @@ const FornecedoresPage: React.FC = () => {
                   Cancelar
                 </button>
                 <button type="submit" className="btn-primary" disabled={saving}>
-                  {saving ? 'A guardar…' : modalMode === 'create' ? 'Criar' : 'Guardar'}
+                  {saving ? 'Salvando…' : modalMode === 'create' ? 'Criar' : 'Salvar'}
                 </button>
               </div>
             </form>

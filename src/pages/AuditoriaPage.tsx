@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { useAuthSession } from '../context/AuthSessionContext';
 import { normalizeListPayload } from '../lib/api-normalize';
 import { formatApiError } from '../lib/api-error-message';
-import { EcondomizaApi } from '../services/api';
+import { roleAllowsAuditDocumentUpload } from '../features/auditoria';
+import { EcondomizaApi } from '../services';
+import { PageHeader } from '../components/layout/PageHeader';
+import { TableScrollHint } from '../components/layout/TableScrollHint';
 
 interface ExpenseRow {
   id: string;
@@ -13,11 +17,14 @@ interface ExpenseRow {
 }
 
 const AuditoriaPage: React.FC = () => {
+  const { profile } = useAuthSession();
+  const canUpload = roleAllowsAuditDocumentUpload(profile?.role);
   const [rows, setRows] = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
+  const [uploadPipelineNote, setUploadPipelineNote] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -56,13 +63,37 @@ const AuditoriaPage: React.FC = () => {
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (!files?.length) return;
+    if (!files?.length || !canUpload) return;
     const file = files[0];
     setUploading(true);
     setUploadMsg(null);
+    setUploadPipelineNote(null);
     try {
-      await EcondomizaApi.uploadDocument(file, { documentType: 'INVOICE', source: 'frontend' });
-      setUploadMsg(`Ficheiro "${file.name}" enviado para ingestão.`);
+      const res = await EcondomizaApi.uploadDocument(file, { documentType: 'INVOICE', source: 'frontend' });
+      const d = (res.data ?? {}) as Record<string, unknown>;
+      const processingNote = String(d.processingNote ?? '').trim();
+      const deduplicated = d.deduplicated === true;
+      const documentId = d.documentId != null ? String(d.documentId) : '';
+
+      if (deduplicated) {
+        setUploadMsg(
+          `Este arquivo já foi enviado para o mesmo condomínio (conteúdo duplicado). Documento existente: ${
+            documentId || '—'
+          }.`
+        );
+      } else {
+        setUploadMsg(`Ficheiro "${file.name}" aceite pela ingestão.${documentId ? ` Documento: ${documentId}.` : ''}`);
+      }
+
+      if (processingNote) {
+        setUploadPipelineNote(processingNote);
+      }
+      if (d.publishedDataIngestedEvent === false && !processingNote) {
+        setUploadPipelineNote(
+          'O processamento downstream pode não ter sido notificado (verifique tenant no JWT e filas RabbitMQ).'
+        );
+      }
+
       await load();
     } catch (err) {
       console.error(err);
@@ -87,17 +118,21 @@ const AuditoriaPage: React.FC = () => {
 
   if (loading && rows.length === 0) {
     return (
-      <div className="auditoria-loading">
-        <p>Carregando…</p>
+      <div className="page page-state" id="auditoria-page">
+        <p>Carregando despesas…</p>
+        <div className="skeleton-card" style={{ width: '100%', maxWidth: 520 }}>
+          <div className="skeleton-block" style={{ width: '55%' }} />
+          <div className="skeleton-block" style={{ width: '100%' }} />
+        </div>
       </div>
     );
   }
 
   if (error && !rows.length) {
     return (
-      <div className="auditoria-error">
+      <div className="page page-state page-state--error" id="auditoria-page">
         <p>{error}</p>
-        <button type="button" onClick={() => void load()}>
+        <button type="button" className="btn-primary" onClick={() => void load()}>
           Tentar novamente
         </button>
       </div>
@@ -106,10 +141,24 @@ const AuditoriaPage: React.FC = () => {
 
   return (
     <div className="page" id="auditoria-page">
-      <div className="page-header">
-        <h1>Auditoria</h1>
-        <p>Despesas processadas e upload para ingestão (documentos)</p>
-      </div>
+      <PageHeader
+        title="Auditoria"
+        description="Consulte despesas já processadas e envie novas notas ou documentos para ingestão."
+        layout="stack"
+        quickLinks={[
+          { to: '/compras', label: 'Compras / despesas' },
+          { to: '/fornecedores', label: 'Fornecedores' },
+          { to: '/produtos', label: 'Produtos' },
+        ]}
+      />
+
+      {error && rows.length > 0 && <div className="banner banner--error">{error}</div>}
+
+      {uploadPipelineNote && (
+        <div className="banner banner--info" role="status">
+          <strong>Pipeline de processamento.</strong> {uploadPipelineNote}
+        </div>
+      )}
 
       {uploadMsg && (
         <div className="card upload-result">
@@ -123,19 +172,30 @@ const AuditoriaPage: React.FC = () => {
         </div>
         <div className="upload-area" id="uploadArea">
           <i className="fas fa-cloud-upload-alt"></i>
-          <p>Arraste ficheiros ou clique para selecionar</p>
-          <small>PDF, JPG, PNG (conforme política do gateway)</small>
+          <p>Arraste arquivos ou clique para selecionar</p>
+          <small>PDF, JPG, PNG ou Excel, conforme política de ingestão do sistema</small>
+          {!canUpload && (
+            <p className="form-help" style={{ marginTop: 'var(--spacing-md)' }}>
+              O envio de documentos está reservado ao <strong>Síndico</strong> (ou administrador). O seu perfil tem
+              acesso de leitura às despesas; não é possível iniciar ingestão a partir desta conta.
+            </p>
+          )}
           <input
             type="file"
             id="fileInput"
             accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls"
             onChange={(e) => void handleFileChange(e)}
             style={{ display: 'none' }}
-            disabled={uploading}
+            disabled={uploading || !canUpload}
           />
           <p>
-            <button type="button" className="btn-primary" disabled={uploading} onClick={() => document.getElementById('fileInput')?.click()}>
-              {uploading ? 'A enviar…' : 'Selecionar ficheiro'}
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={uploading || !canUpload}
+              onClick={() => document.getElementById('fileInput')?.click()}
+            >
+              {uploading ? 'Enviando…' : 'Selecionar arquivo'}
             </button>
           </p>
         </div>
@@ -145,7 +205,8 @@ const AuditoriaPage: React.FC = () => {
         <div className="card-header">
           <h2>Despesas / auditoria</h2>
         </div>
-        <div className="audits-table">
+        <TableScrollHint />
+        <div className="audits-table table-scroll">
           <table>
             <thead>
               <tr>
@@ -169,7 +230,9 @@ const AuditoriaPage: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5}>Sem despesas. Verifique permissões (Conselho) ou carregue documentos acima.</td>
+                  <td colSpan={5}>
+                    Sem despesas listadas. {canUpload ? 'Envie um documento acima ou aguarde o processamento.' : 'Com o perfil Conselho pode consultar dados quando existirem; o envio é feito pelo Síndico.'}
+                  </td>
                 </tr>
               )}
             </tbody>

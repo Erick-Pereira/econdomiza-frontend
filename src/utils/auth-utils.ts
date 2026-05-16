@@ -220,8 +220,10 @@ export function extractTokenFromResponse(response: Response): string | null {
 }
 
 // Tratamento de erro de 401
-export async function handleUnauthorizedError(error: any): Promise<boolean> {
-  console.log('Token expirou ou inválido, renovando...', error);
+export async function handleUnauthorizedError(): Promise<boolean> {
+  if (import.meta.env.DEV) {
+    console.warn('Sessão expirada ou inválida; tentando renovar.');
+  }
   
   // Se não temos token, retornar false
   if (!getTokenFromStorage()) {

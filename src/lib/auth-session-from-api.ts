@@ -1,4 +1,5 @@
 import type { AuthTokens, UserProfile } from '../context/AuthSessionContext';
+import { mapGatewayUserProfile } from '../domain/user-profile';
 
 function num(v: unknown, fallback: number): number {
   const n = Number(v);
@@ -48,18 +49,17 @@ export function authTokensFromGatewayStorage(): AuthTokens | null {
 
 /**
  * Normaliza `GET /api/auth/me` (ou objeto equivalente) para `UserProfile`.
+ * Usa `domain/user-profile` como única fonte de mapeamento a partir do gateway.
  */
 export function userProfileFromMePayload(data: unknown): UserProfile | null {
-  if (data == null || typeof data !== 'object') return null;
-  const d = data as Record<string, unknown>;
-  const id = String(d.id ?? d.Id ?? '');
-  if (!id) return null;
+  const u = mapGatewayUserProfile(data);
+  if (!u) return null;
   return {
-    id,
-    email: String(d.email ?? d.Email ?? ''),
-    name: String(d.name ?? d.Name ?? ''),
-    role: String(d.role ?? d.Role ?? ''),
-    tenantId: String(d.tenantId ?? d.TenantId ?? ''),
-    createdAt: String(d.createdAt ?? d.CreatedAt ?? ''),
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    role: u.role,
+    tenantId: u.tenantId,
+    createdAt: u.createdAt ?? '',
   };
 }

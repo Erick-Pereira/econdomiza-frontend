@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { CondominioLookupModal } from '../../../components/auth/CondominioLookupModal';
 import type { CondoRow } from '../../../lib/condominio-lookup';
 import { formatApiError } from '../../../lib/api-error-message';
-import { EcondomizaApi } from '../../../services/api';
+import { EcondomizaApi } from '../../../services';
 import { useAuthSession } from '../../../context/AuthSessionContext';
 import { useRegisterForm } from '../hooks/useRegisterForm';
 import { useEstablishGatewaySession } from '../hooks/useEstablishGatewaySession';
+import { isTenantRole, REGISTER_ROLE_OPTIONS, type TenantRole } from '../../../domain/auth-roles';
 import { AUTH_COPY, isValidTenantGuid } from '../constants';
-import { Button, Input, PasswordInput, LoadingSpinner } from '../../../components/ui';
+import { Button, Input, PasswordInput, LoadingSpinner, FormError } from '../../../components/ui';
 
 export interface RegisterFormProps {
   defaultTenantId?: string;
@@ -120,16 +121,15 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onR
 
   const onSubmit = useCallback(
     async (e: React.FormEvent) => {
+      e.preventDefault();
       setLoading(true);
       const isValid = validate();
       if (!isValid) {
-        setErrors({});
         setLoading(false);
         return;
       }
 
       await handleSubmit(e);
-      setErrors({});
       setLoading(false);
     },
     [validate, setErrors, handleSubmit]
@@ -152,17 +152,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onR
   }, [formData.tenantId]);
 
   const handleRoleChange = useCallback(
-    (role: string) => {
+    (role: TenantRole) => {
       form.setFormData((prev) => ({ ...prev, role }));
     },
     [form.setFormData]
   );
-
-  const roles: { value: string; label: string }[] = [
-    { value: 'Sindico', label: 'Síndico' },
-    { value: 'Administrador', label: 'Administrador' },
-    { value: 'Membro', label: 'Membro' },
-  ];
 
   return (
     <main className="login-shell" aria-labelledby="register-heading">
@@ -268,7 +262,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onR
             <PasswordInput
               label="Senha"
               id="password"
-              type="password"
               value={formData.password}
               onChange={(e) => form.setFormData((prev) => ({ ...prev, password: e.target.value }))}
               error={errors.password}
@@ -285,26 +278,30 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onR
               <select
                 id="role-select"
                 value={formData.role}
-                onChange={(e) => handleRoleChange(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (isTenantRole(v)) handleRoleChange(v);
+                }}
                 className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
                 disabled={!hasCondominio || isNameValid === false || !formData.email}
                 aria-describedby="role-helper"
               >
-                {roles.map((role) => (
+                {REGISTER_ROLE_OPTIONS.map((role) => (
                   <option key={role.value} value={role.value}>
                     {role.label}
                   </option>
                 ))}
               </select>
               <p id="role-helper" className="text-sm text-gray-500 mt-1">
-                Selecione seu perfil no condomínio
+                {REGISTER_ROLE_OPTIONS.find((r) => r.value === formData.role)?.helper ??
+                  'O valor enviado deve coincidir com o perfil atribuído no condomínio.'}
               </p>
             </div>
 
             {errors.general && (
-              <p className="auth-screen-error mt-2" role="alert">
-                {errors.general}
-              </p>
+              <div className="mt-3">
+                <FormError className="auth-screen-error">{errors.general}</FormError>
+              </div>
             )}
 
             <div className="form-actions">

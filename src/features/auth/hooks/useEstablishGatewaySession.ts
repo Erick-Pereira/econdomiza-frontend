@@ -7,7 +7,7 @@ import {
   authTokensFromLoginPayload,
   userProfileFromMePayload,
 } from '../../../lib/auth-session-from-api';
-import { EcondomizaApi } from '../../../services/api';
+import { EcondomizaApi } from '../../../services';
 import { AUTH_COPY } from '../constants';
 
 export type EstablishSessionFailureCode = 'no_tokens' | 'no_profile' | 'api';
