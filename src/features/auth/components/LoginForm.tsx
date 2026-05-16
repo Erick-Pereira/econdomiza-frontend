@@ -35,7 +35,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ defaultTenantId, onLoginEr
 
   const form = useLoginForm();
 
-  const { formData, errors, setErrors, validate, showAdvanced } = form;
+  const { formData, errors, setErrors, validate, showAdvanced, setFormData } = form;
 
   useEffect(() => {
     if (!sessionLoading && isAuthenticated) {
@@ -54,9 +54,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ defaultTenantId, onLoginEr
     (row: CondoRow) => {
       setErrors((prev: FormErrors) => ({ ...prev, tenantId: undefined }));
       setCondoLabel(row.label);
-      form.setFormData((prev: LoginFormData) => ({ ...prev, tenantId: row.id }));
+      setFormData((prev: LoginFormData) => ({ ...prev, tenantId: row.id }));
     },
-    [form.setFormData, setErrors]
+    [setFormData, setErrors]
   );
 
   const handleSubmit = useCallback(
@@ -107,7 +107,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ defaultTenantId, onLoginEr
       await handleSubmit(e);
       setIsLoading(false);
     },
-    [validate, setErrors, handleSubmit]
+    [validate, handleSubmit]
   );
 
   useEffect(() => {
@@ -115,10 +115,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ defaultTenantId, onLoginEr
       const tid = defaultTenantId.trim();
       if (isValidTenantGuid(tid)) {
         setCondoLabel(null);
-        form.setFormData((prev: LoginFormData) => ({ ...prev, tenantId: tid }));
+        setFormData((prev: LoginFormData) => ({ ...prev, tenantId: tid }));
       }
     }
-  }, [defaultTenantId, form.setFormData]);
+  }, [defaultTenantId, setFormData]);
 
   useEffect(() => {
     if (!formData.tenantId.trim()) {

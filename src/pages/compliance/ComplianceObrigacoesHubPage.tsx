@@ -238,7 +238,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [profile?.tenantId]);
+  }, [profile]);
 
   useEffect(() => {
     void loadAll();

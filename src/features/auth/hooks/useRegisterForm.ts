@@ -67,7 +67,7 @@ export const useRegisterForm = (): UseRegisterFormReturn => {
 
   const isFormValid = useMemo(() => {
     return hasCondominio && !!formData.email && isEmailValid && isPasswordValid && isNameValid && !!formData.role;
-  }, [formData.tenantId, formData.name, formData.email, formData.password, formData.role, hasCondominio, isEmailValid, isPasswordValid, isNameValid]);
+  }, [hasCondominio, formData.email, formData.role, isEmailValid, isPasswordValid, isNameValid]);
 
   const validate = useCallback((): boolean => {
     const newErrors: RegisterFormErrors = {};

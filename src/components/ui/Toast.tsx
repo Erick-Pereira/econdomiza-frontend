@@ -1,5 +1,6 @@
 'use client';
 
+/* eslint-disable react-refresh/only-export-components -- context + hook live with provider UI */
 import React, { createContext, useCallback, useMemo, useState, type ReactNode } from 'react';
 
 // Tipos

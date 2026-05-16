@@ -56,7 +56,7 @@ export const useLoginForm = (): {
 
   const isFormValid = useMemo(() => {
     return hasCondominio && !!formData.email && !!formData.password;
-  }, [formData.email, formData.password, formData.tenantId, hasCondominio]);
+  }, [formData.email, formData.password, hasCondominio]);
 
   const validate = useCallback((): boolean => {
     const newErrors: FormErrors = {};

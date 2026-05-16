@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- session context + hook + helpers */
 import React, {
   createContext,
   useCallback,

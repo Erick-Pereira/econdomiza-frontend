@@ -39,6 +39,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onR
     showAdvanced,
     hasCondominio,
     isNameValid,
+    setFormData,
   } = form;
 
   const summaryDisplay = useMemo(() => {
@@ -52,9 +53,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onR
     (row: CondoRow) => {
       setErrors((prev) => ({ ...prev, tenantId: undefined }));
       setCondoLabel(row.label);
-      form.setFormData((prev) => ({ ...prev, tenantId: row.id }));
+      setFormData((prev) => ({ ...prev, tenantId: row.id }));
     },
-    [form.setFormData, setErrors]
+    [setFormData, setErrors]
   );
 
   const handleSubmit = useCallback(
@@ -132,7 +133,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onR
       await handleSubmit(e);
       setLoading(false);
     },
-    [validate, setErrors, handleSubmit]
+    [validate, handleSubmit]
   );
 
   useEffect(() => {
@@ -140,10 +141,10 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onR
       const tid = defaultTenantId.trim();
       if (isValidTenantGuid(tid)) {
         setCondoLabel(null);
-        form.setFormData((prev) => ({ ...prev, tenantId: tid }));
+        setFormData((prev) => ({ ...prev, tenantId: tid }));
       }
     }
-  }, [defaultTenantId, form.setFormData]);
+  }, [defaultTenantId, setFormData]);
 
   useEffect(() => {
     if (!formData.tenantId.trim()) {
@@ -153,9 +154,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onR
 
   const handleRoleChange = useCallback(
     (role: TenantRole) => {
-      form.setFormData((prev) => ({ ...prev, role }));
+      setFormData((prev) => ({ ...prev, role }));
     },
-    [form.setFormData]
+    [setFormData]
   );
 
   return (

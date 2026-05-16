@@ -63,7 +63,7 @@ export function MainLayout() {
       console.error('Erro ao fazer logout:', err);
     }
     navigate('/login', { replace: true });
-  }, [actions.logout, navigate]);
+  }, [actions, navigate]);
 
   if (isLoading) {
     return <RouteFallback />;
