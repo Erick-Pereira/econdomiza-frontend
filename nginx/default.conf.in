@@ -7,8 +7,16 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # O Docker resolve o nome do serviço na rede; o nginx, com proxy_pass fixo,
+    # resolve o hostname ao CARREGAR a config — muitas vezes falha no arranque
+    # ("host not found in upstream"). Resolver interno + URL em variável adia
+    # a resolução para o primeiro pedido (usa o mesmo DNS 127.0.0.11 do Docker).
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    resolver_timeout 5s;
+
     location /api/ {
-        proxy_pass ${SIMCAG_GATEWAY_UPSTREAM};
+        set $simcag_gateway "${SIMCAG_GATEWAY_UPSTREAM}";
+        proxy_pass $simcag_gateway;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
