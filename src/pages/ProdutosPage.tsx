@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatApiError } from '../lib/api-error-message';
+import { formatDatePtBr } from '../lib/format-date-pt-br';
 import { EcondomizaApi } from '../services';
 import { PageHeader } from '../components/layout/PageHeader';
 import { TableScrollHint } from '../components/layout/TableScrollHint';
@@ -79,10 +80,7 @@ function numberPt(value: number | null | undefined): string {
 }
 
 function datePt(value: string | null | undefined): string {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('pt-BR');
+  return formatDatePtBr(value, '—');
 }
 
 function pickStr(obj: Record<string, unknown>, ...keys: string[]): string {

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { formatApiError } from '../../lib/api-error-message';
+import { formatDateTimePtBr } from '../../lib/format-date-pt-br';
 import { EcondomizaApi } from '../../services';
 import { PageHeader } from '../../components/layout/PageHeader';
 
@@ -271,13 +272,13 @@ const ExpenseCompliancePage: React.FC = () => {
             <dl className="compliance-finding-meta">
               <div>
                 <dt>Avaliado (UTC)</dt>
-                <dd>{evaluated ? new Date(evaluated).toLocaleString('pt-BR') : '—'}</dd>
+                <dd>{evaluated ? formatDateTimePtBr(evaluated) : '—'}</dd>
               </div>
               <div>
                 <dt>Criado / atualizado</dt>
                 <dd>
-                  {created ? new Date(created).toLocaleString('pt-BR') : '—'} ·{' '}
-                  {updated ? new Date(updated).toLocaleString('pt-BR') : '—'}
+                  {created ? formatDateTimePtBr(created) : '—'} ·{' '}
+                  {updated ? formatDateTimePtBr(updated) : '—'}
                 </dd>
               </div>
               <div>
@@ -287,7 +288,7 @@ const ExpenseCompliancePage: React.FC = () => {
                     <>
                       {waivedBy || '—'}
                       {waivedAt && (
-                        <span className="op-muted"> · {new Date(waivedAt).toLocaleString('pt-BR')}</span>
+                        <span className="op-muted"> · {formatDateTimePtBr(waivedAt)}</span>
                       )}
                     </>
                   ) : (
@@ -337,7 +338,7 @@ const ExpenseCompliancePage: React.FC = () => {
                   return (
                     <li key={cid}>
                       <span className="op-muted op-small">
-                        {author || 'Usuário'} · {at ? new Date(at).toLocaleString('pt-BR') : ''}
+                        {author || 'Usuário'} · {at ? formatDateTimePtBr(at) : ''}
                       </span>
                       <p>{body}</p>
                     </li>

@@ -3,6 +3,8 @@
  * Contrato alinhado a `docs/api-contracts.md` (campos camelCase / variantes).
  */
 
+import { formatDatePtBr, formatDateTimePtBr } from './format-date-pt-br';
+
 export function isAlertRowResolved(row: Record<string, unknown>): boolean {
   return row.resolved === true || row.isResolved === true || row.IsResolved === true;
 }
@@ -30,23 +32,9 @@ export function prioridadeLabelFromSeverity(sev: string): 'alta' | 'media' | 'ba
 
 /** Data de criação/atualização em pt-BR; evita "Invalid Date" em ISO inválido. */
 export function formatAlertDateTimePtBr(iso: string): string {
-  if (!iso?.trim()) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  try {
-    return d.toLocaleString('pt-BR');
-  } catch {
-    return '—';
-  }
+  return formatDateTimePtBr(iso, '—');
 }
 
 export function formatAlertDatePtBr(iso: string): string {
-  if (!iso?.trim()) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  try {
-    return d.toLocaleDateString('pt-BR');
-  } catch {
-    return '—';
-  }
+  return formatDatePtBr(iso, '—');
 }

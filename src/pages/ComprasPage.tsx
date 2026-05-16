@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { normalizeListPayload } from '../lib/api-normalize';
 import { formatApiError } from '../lib/api-error-message';
+import { formatDatePtBr } from '../lib/format-date-pt-br';
 import { EcondomizaApi } from '../services';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageFatalErrorState, PageLoadingState } from '../components/layout/PageLoadStates';
@@ -46,12 +47,7 @@ function money(row: Record<string, unknown>): string {
 
 function datePt(row: Record<string, unknown>): string {
   const s = pickStr(row, 'issueDate', 'IssueDate');
-  if (!s) return '—';
-  try {
-    return new Date(s).toLocaleDateString('pt-BR');
-  } catch {
-    return s;
-  }
+  return formatDatePtBr(s, '—');
 }
 
 function badgeClass(tone: string): string {

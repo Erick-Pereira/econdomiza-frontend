@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { EcondomizaApi } from '../services';
 import { formatApiError } from '../lib/api-error-message';
+import { formatDatePtBr, formatDateTimePtBr } from '../lib/format-date-pt-br';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageFatalErrorState, PageLoadingState } from '../components/layout/PageLoadStates';
 import { useToast } from '../components/ui/Toast';
@@ -372,7 +373,7 @@ const ExpenseOperationalDetailPage: React.FC = () => {
           </div>
           <div>
             <dt>Emissão</dt>
-            <dd>{issue ? new Date(issue).toLocaleDateString('pt-BR') : '—'}</dd>
+            <dd>{issue ? formatDatePtBr(issue) : '—'}</dd>
           </div>
           <div>
             <dt>Retries pipeline</dt>
@@ -388,9 +389,9 @@ const ExpenseOperationalDetailPage: React.FC = () => {
       {(processingCode === 'Failed' || failReason) && (
         <div className="banner banner--error op-failure-banner">
           <strong>Falha de processamento</strong>
-          {failedAt && <span className="op-muted"> · {new Date(failedAt).toLocaleString('pt-BR')}</span>}
+          {failedAt && <span className="op-muted"> · {formatDateTimePtBr(failedAt)}</span>}
           {failReason && <p className="op-failure-reason">{failReason}</p>}
-          {lastPipe && <p className="op-muted">Última transição de pipeline: {new Date(lastPipe).toLocaleString('pt-BR')}</p>}
+          {lastPipe && <p className="op-muted">Última transição de pipeline: {formatDateTimePtBr(lastPipe)}</p>}
         </div>
       )}
 
@@ -540,7 +541,7 @@ const ExpenseOperationalDetailPage: React.FC = () => {
           {filteredTimeline.length === 0 && <li className="op-muted">Sem eventos neste filtro.</li>}
           {filteredTimeline.map((e, idx) => (
             <li key={`${e.at}-${idx}`} className={`op-timeline__item op-timeline__item--${e.source}`}>
-              <time dateTime={e.at}>{new Date(e.at).toLocaleString('pt-BR')}</time>
+              <time dateTime={e.at}>{formatDateTimePtBr(e.at)}</time>
               <div className="op-timeline__body">
                 <strong>{e.title}</strong>
                 {e.detail && <p className="op-timeline__detail">{e.detail}</p>}
@@ -609,7 +610,7 @@ const ExpenseOperationalDetailPage: React.FC = () => {
                     const refunded = pickBool(p, 'isRefunded', 'IsRefunded');
                     return (
                       <tr key={pid + String(i)}>
-                        <td>{new Date(pickStr(p, 'paymentDate', 'PaymentDate')).toLocaleDateString('pt-BR')}</td>
+                        <td>{formatDatePtBr(pickStr(p, 'paymentDate', 'PaymentDate'))}</td>
                         <td>{money(pickNum(p, 'amount', 'Amount'))}</td>
                         <td>{pickStr(p, 'method', 'Method')}</td>
                         <td className="op-mono">{pickStr(p, 'referenceCode', 'ReferenceCode') || '—'}</td>

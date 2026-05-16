@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthSession } from '../context/AuthSessionContext';
+import { formatDatePtBr } from '../lib/format-date-pt-br';
 import { normalizeListPayload } from '../lib/api-normalize';
 import { formatApiError } from '../lib/api-error-message';
 import { roleAllowsAuditDocumentUpload } from '../features/auditoria';
@@ -101,15 +102,6 @@ const AuditoriaPage: React.FC = () => {
     } finally {
       setUploading(false);
       event.target.value = '';
-    }
-  };
-
-  const formatDatePt = (iso: string): string => {
-    if (!iso) return '-';
-    try {
-      return new Date(iso).toLocaleDateString('pt-BR');
-    } catch {
-      return '-';
     }
   };
 
@@ -223,7 +215,7 @@ const AuditoriaPage: React.FC = () => {
                   <tr key={r.id} data-expense-id={r.id}>
                     <td>{r.description}</td>
                     <td>{r.supplierName}</td>
-                    <td>{formatDatePt(r.issueDate)}</td>
+                    <td>{formatDatePtBr(r.issueDate, '-')}</td>
                     <td>{r.status}</td>
                     <td>{formatCurrency(r.totalAmount)}</td>
                   </tr>

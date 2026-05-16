@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuthSession } from '../../context/AuthSessionContext';
 import { normalizeListPayload } from '../../lib/api-normalize';
 import { formatApiError } from '../../lib/api-error-message';
+import { formatDatePtBr, parseApiDateLocal } from '../../lib/format-date-pt-br';
 import { EcondomizaApi } from '../../services';
 import { PageHeader } from '../../components/layout/PageHeader';
 
@@ -40,8 +41,8 @@ function mapConformityRow(raw: unknown): ObrigacaoItem | null {
   const doneRaw = c.completedAt ?? c.CompletedAt;
   const dueDate = dueRaw != null && String(dueRaw) !== '' ? String(dueRaw) : null;
   const completedAt = doneRaw != null && String(doneRaw) !== '' ? String(doneRaw) : null;
-  const due = dueDate ? new Date(dueDate) : null;
-  const completed = completedAt ? new Date(completedAt) : null;
+  const due = dueDate ? parseApiDateLocal(dueDate) : null;
+  const completed = completedAt ? parseApiDateLocal(completedAt) : null;
 
   let lifecycle: 'completed' | 'pending' | 'overdue' = 'pending';
   if (apiStatus === 'COMPLETED' || (completed && !Number.isNaN(completed.getTime()))) {
@@ -79,7 +80,7 @@ interface ObrigacaoItem {
 function bucketForItem(it: ObrigacaoItem): ObrigacaoBucket {
   if (it.lifecycle === 'completed') return 'em-dia';
   if (it.lifecycle === 'overdue') {
-    const due = it.dueDate ? new Date(it.dueDate) : null;
+    const due = it.dueDate ? parseApiDateLocal(it.dueDate) : null;
     if (due && !Number.isNaN(due.getTime())) {
       const days = (Date.now() - due.getTime()) / 86400000;
       if (days > DIAS_PARA_CRITICO) return 'critico';
@@ -289,14 +290,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
     return keys.map((k) => ({ key: k, items: map.get(k)! }));
   }, [filteredItems]);
 
-  const formatDatePt = (iso: string | null): string => {
-    if (!iso) return 'Sem data';
-    try {
-      return new Date(iso).toLocaleDateString('pt-BR');
-    } catch {
-      return '—';
-    }
-  };
+  const formatDatePt = (iso: string | null): string => formatDatePtBr(iso, 'Sem data');
 
   const formatMonthPt = (yyyyMm: string): string => {
     if (yyyyMm === 'sem-prazo') return 'Sem prazo definido';
