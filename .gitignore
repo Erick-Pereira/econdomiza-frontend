@@ -1,0 +1,81 @@
+# -----------------------------------------------------------------------------
+# Dependências (NUNCA envie para o repositório)
+# -----------------------------------------------------------------------------
+node_modules/
+jspm_packages/
+.pnpm-store/
+
+# -----------------------------------------------------------------------------
+# Pastas de Build e Saída
+# -----------------------------------------------------------------------------
+# Next.js
+.next/
+out/
+
+# Vite / Produção geral
+dist/
+build/
+
+# -----------------------------------------------------------------------------
+# Logs de Erro e Execução
+# -----------------------------------------------------------------------------
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# -----------------------------------------------------------------------------
+# Variáveis de Ambiente (Segurança)
+# -----------------------------------------------------------------------------
+# Bloqueia arquivos locais com credenciais reais
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env.local
+
+# PERMITA apenas o exemplo/template de env (remova o # se quiser usar)
+# !.env.example
+
+# -----------------------------------------------------------------------------
+# Ferramentas de Desenvolvimento & TypeScript
+# -----------------------------------------------------------------------------
+.tsbuildinfo
+.eslintcache
+.stylelintcache
+.prettiercache
+
+# Testes (Jest, Vitest, Cypress)
+coverage/
+.nyc_output/
+.cypress-cache/
+
+# -----------------------------------------------------------------------------
+# Configurações de IDEs e Sistema Operacional
+# -----------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+desktop.ini
+
+# IDEs (VS Code, WebStorm, etc.)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
