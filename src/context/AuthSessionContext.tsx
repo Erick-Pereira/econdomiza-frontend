@@ -61,9 +61,30 @@ export const AuthSessionProvider: React.FC<AuthSessionProviderProps> = ({
   initialProfile,
   sessionTimeoutMs = DEFAULT_SESSION_TIMEOUT_MS,
 }) => {
-  const [profile, setProfile] = useState<UserProfile | null>(initialProfile ?? null);
-  const [tokens, setTokens] = useState<AuthTokens | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // TEMP_AUTH_DISABLED: Flag para desativar autenticação temporariamente
+  const TEMP_AUTH_DISABLED = localStorage.getItem('TEMP_AUTH_DISABLED_MODE') === 'true';
+
+  // TEMP_AUTH_DISABLED: Usuário fake para desenvolvimento sem backend
+  const TEMP_FAKE_PROFILE: UserProfile = {
+    id: 'temp-dev-user-123',
+    email: 'dev@localhost.test',
+    name: 'Dev User (Mock)',
+    role: 'ADMIN',
+    tenantId: '00000000-0000-0000-0000-000000000000',
+    createdAt: new Date().toISOString(),
+  };
+
+  // TEMP_AUTH_DISABLED: Token fake com 8 horas de expiração
+  const TEMP_FAKE_TOKENS: AuthTokens = {
+    accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZW1wLWRldi11c2VyLTEyMyIsImV4cCI6OTk5OTk5OTk5OX0.temp_fake_token_for_development_only',
+    refreshToken: 'temp_refresh_token_dev_only',
+    expiresIn: 8 * 60 * 60,
+    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+  };
+
+  const [profile, setProfile] = useState<UserProfile | null>(TEMP_AUTH_DISABLED ? TEMP_FAKE_PROFILE : (initialProfile ?? null));
+  const [tokens, setTokens] = useState<AuthTokens | null>(TEMP_AUTH_DISABLED ? TEMP_FAKE_TOKENS : null);
+  const [isLoading, setIsLoading] = useState(!TEMP_AUTH_DISABLED); // TEMP_AUTH_DISABLED: isLoading = false immediately
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loginCount, setLoginCount] = useState(0);
   /** Último login ou renovação bem-sucedida de tokens (ISO), para contexto sem refs em `useMemo`. */
@@ -157,6 +178,12 @@ export const AuthSessionProvider: React.FC<AuthSessionProviderProps> = ({
 
   // Persistir sessão no localStorage
   useEffect(() => {
+    // TEMP_AUTH_DISABLED: Skip localStorage check se modo desativado ativado
+    if (TEMP_AUTH_DISABLED) {
+      console.warn('[TEMP_AUTH_DISABLED] Autenticação desativada - usando usuário mock. Remova TEMP_AUTH_DISABLED_MODE=true do localStorage para reativar.');
+      return;
+    }
+
     const storedProfile = localStorage.getItem(SESSION_STORAGE_KEYS.profile);
     const storedTokens = localStorage.getItem(SESSION_STORAGE_KEYS.tokens);
     const storedLoginCount = localStorage.getItem(SESSION_STORAGE_KEYS.loginCount);

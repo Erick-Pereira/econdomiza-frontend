@@ -8,6 +8,13 @@ import { MainLayout } from './app/layouts/MainLayout';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 
 function App() {
+  // TEMP_AUTH_DISABLED: Ativar modo desenvolvimento sem autenticação
+  // Remova a linha abaixo ou defina como false para reativar autenticação
+  const TEMP_AUTH_DISABLED = true; // CHANGE: false para reativar auth
+  if (TEMP_AUTH_DISABLED && typeof window !== 'undefined') {
+    localStorage.setItem('TEMP_AUTH_DISABLED_MODE', 'true');
+  }
+
   return (
     <ErrorProvider>
       <ToastProvider>
@@ -23,7 +30,8 @@ function App() {
                   path="/register"
                   element={<RegisterForm defaultTenantId={import.meta.env.VITE_DEFAULT_TENANT_ID} />}
                 />
-                <Route path="/auth.html" element={<Navigate to="/login" replace />} />
+                {/* TEMP_AUTH_DISABLED: Redirecionar /auth.html → /dashboard em modo dev */}
+                <Route path="/auth.html" element={<Navigate to={TEMP_AUTH_DISABLED ? "/dashboard" : "/login"} replace />} />
                 <Route path="*" element={<MainLayout />} />
               </Routes>
             </AuthSessionProvider>

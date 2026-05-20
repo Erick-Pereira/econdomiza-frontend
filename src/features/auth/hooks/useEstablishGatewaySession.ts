@@ -48,6 +48,13 @@ export function useEstablishGatewaySession() {
 
   const loginWithCredentials = useCallback(
     async (tenantId: string, email: string, password: string): Promise<EstablishSessionResult> => {
+      // TEMP_AUTH_DISABLED: Mockar sucesso de login se modo desativado
+      const TEMP_AUTH_DISABLED = localStorage.getItem('TEMP_AUTH_DISABLED_MODE') === 'true';
+      if (TEMP_AUTH_DISABLED) {
+        console.warn('[TEMP_AUTH_DISABLED] loginWithCredentials bypassed - retornando sucesso fake');
+        return { ok: true };
+      }
+
       try {
         const loginRes = await EcondomizaApi.login(tenantId, email.trim(), password);
         return establishSessionFromAuthEnvelope(actions.login, loginRes.data);

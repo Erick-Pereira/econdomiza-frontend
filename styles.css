@@ -14,7 +14,7 @@
 
 :root {
     /* Tipografia — display serif para títulos, Geist para corpo */
-    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+    --font-display: "Geist", Georgia, "Times New Roman", serif;
     --font-body: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --font-mono: "Geist Mono", ui-monospace, monospace;
 
@@ -3690,6 +3690,22 @@ details.product-trace[open] > summary {
 
 .obligation-filters {
     margin-bottom: var(--spacing-lg);
+
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+
+    width: 100%;
+
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+.obligation-filters__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
 }
 
 .obligation-filters__chips {
@@ -3729,8 +3745,8 @@ details.product-trace[open] > summary {
 }
 
 .obligation-card-list {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: var(--spacing-md);
 }
 
@@ -3739,6 +3755,14 @@ details.product-trace[open] > summary {
     border: 1px solid var(--border);
     padding: var(--spacing-lg);
     background: var(--surface-primary);
+
+    min-height: 260px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+
+    box-sizing: border-box;
 }
 
 .obligation-card__top {
@@ -3906,11 +3930,23 @@ details.product-trace[open] > summary {
 }
 
 .obligation-add__form {
-    margin-top: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+
+    width: 100%;
+
+    padding: 1rem;
+    box-sizing: border-box;
 }
 
 .obligation-add__submit {
-    margin-top: var(--spacing-sm);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
 }
 
 .conformity-item.overdue .conformity-checkbox {
@@ -3993,11 +4029,35 @@ details.product-trace[open] > summary {
 }
 
 .notif-hub__section {
-    margin-bottom: var(--spacing-xl);
+    margin-bottom: var(--spacing-md);
+
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+
+    width: 100%;
+
+    padding: 1rem;
+    box-sizing: border-box;
+
+    border-radius: var(--radius-lg);
+    background: #fff;
 }
 
 .notif-hub__filters {
     margin-bottom: var(--spacing-md);
+
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+
+    width: 100%;
+
+    padding: 1rem;
+    box-sizing: border-box;
+
+    border-radius: var(--radius-lg);
+    background: #fff;
 }
 
 .notif-filter-row {

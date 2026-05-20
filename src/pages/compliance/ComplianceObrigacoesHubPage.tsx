@@ -519,7 +519,6 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
                       : b === 'vencido'
                         ? 'obligation-status obligation-status--vencido'
                         : 'obligation-status obligation-status--critico';
-
                 return (
                   <article key={it.id} className={`obligation-card obligation-card--${b}`}>
                     <div className="obligation-card__top">
@@ -569,7 +568,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
       {visao === 'calendario' && (
         <section className="obligation-calendar" aria-label="Obrigações por mês de vencimento">
           {calendarGroups.length === 0 ? (
-            <p className="empty-state">Nenhum item neste filtro.</p>
+            <p className="card obligation-filters empty-state">Nenhum item neste filtro.</p>
           ) : (
             calendarGroups.map(({ key, items: group }) => (
               <div key={key} className="obligation-calendar__month">
@@ -600,7 +599,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
       )}
 
       {visao === 'compras' && (
-        <section className="card" aria-label="Fila de pendências nas compras">
+        <section className="card obligation-filters" aria-label="Fila de pendências nas compras">
           <h2 className="obligation-checklist__title" style={{ marginTop: 0 }}>
             Documentação e validações nas compras
           </h2>
@@ -647,6 +646,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
       )}
 
       <section className="card obligation-add" aria-label="Registar nova obrigação">
+        <form className="obligation-add__form" onSubmit={onAdd}>
         <h2 className="obligation-checklist__title" style={{ marginTop: 0 }}>
           Registar nova obrigação ou vistoria
         </h2>
@@ -654,7 +654,6 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
           Ex.: inspeção de elevadores, limpeza de caixa d&apos;água, licença municipal. Só precisa de uma descrição clara;
           o prazo é opcional mas ajuda o calendário.
         </p>
-        <form className="obligation-add__form" onSubmit={onAdd}>
           <label className="op-field">
             <span>O quê precisa ser feito?</span>
             <input

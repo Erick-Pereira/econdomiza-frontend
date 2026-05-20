@@ -7,6 +7,9 @@ import AuthenticatedRoutes from '../authenticated-routes';
 import { APP_NAV_ITEMS } from '../nav-items';
 
 export function MainLayout() {
+  // TEMP_AUTH_DISABLED: Modo sem autenticação para desenvolvimento sem backend
+  const TEMP_AUTH_DISABLED = localStorage.getItem('TEMP_AUTH_DISABLED_MODE') === 'true';
+
   const navigate = useNavigate();
   const location = useLocation();
   const { profile, actions, isLoading, isAuthenticated } = useAuthSession();
@@ -69,7 +72,8 @@ export function MainLayout() {
     return <RouteFallback />;
   }
 
-  if (!isAuthenticated) {
+  // TEMP_AUTH_DISABLED: Desativar redirecionamento de login em modo dev
+  if (!isAuthenticated && !TEMP_AUTH_DISABLED) {
     return <Navigate to="/login" replace />;
   }
 

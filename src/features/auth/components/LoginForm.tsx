@@ -130,6 +130,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ defaultTenantId, onLoginEr
     <main className="login-shell" aria-labelledby="login-heading">
       <div className="login-page">
         <div className="login-card">
+          <img src="/logo-econdomiza.jpeg" alt="Logo" class="logo-large"></img>
           <h2 id="login-heading">Entrar</h2>
           <p id="login-intro" className="form-help login-intro">
             Escolha o <strong>condomínio</strong> em que vai trabalhar. 
