@@ -4,5 +4,5 @@ import { RegisterForm } from '../features/auth/components/RegisterForm';
  * Página fina de registo: delega para o formulário canónico da feature `auth`.
  */
 export default function RegisterPage() {
-  return <RegisterForm defaultTenantId={import.meta.env.VITE_DEFAULT_TENANT_ID} />;
+  return <RegisterForm />;
 }

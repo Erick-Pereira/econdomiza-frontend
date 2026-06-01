@@ -1,1 +1,1 @@
-export { roleAllowsAuditDocumentUpload } from './rbac';
+export * from './rbac';

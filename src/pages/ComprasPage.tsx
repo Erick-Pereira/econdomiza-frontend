@@ -1,211 +1,141 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { normalizeListPayload } from '../lib/api-normalize';
-import { formatApiError } from '../lib/api-error-message';
-import { formatDatePtBr } from '../lib/format-date-pt-br';
-import { EcondomizaApi } from '../services';
+import React, { useMemo, useState } from 'react';
+
+import { RefreshCw, SlidersHorizontal } from 'lucide-react';
+
 import { PageHeader } from '../components/layout/PageHeader';
-import { PageFatalErrorState, PageLoadingState } from '../components/layout/PageLoadStates';
-import { TableScrollHint } from '../components/layout/TableScrollHint';
-import {
-  PROCESSING_STATUS_FILTER_OPTIONS,
-  approvalStatusTone,
-  asRecord,
-  confidenceTone,
-  formatConfidencePercent,
-  humanizeApprovalPt,
-  humanizeProcessingPt,
-  humanizeSettlementPt,
-  pickBool,
-  pickNum,
-  pickStr,
-  processingStatusTone,
-  settlementStatusTone,
-} from '../lib/expense-operational-ui';
 
-/** Despesas (notas / compras) — lista operacional alinhada ao serviço de processamento. */
-function extractExpenseRows(raw: unknown): Record<string, unknown>[] {
-  const direct = normalizeListPayload(raw);
-  if (direct.length > 0) {
-    return direct.filter((r) => r != null && typeof r === 'object') as Record<string, unknown>[];
-  }
-  if (raw && typeof raw === 'object') {
-    for (const v of Object.values(raw as Record<string, unknown>)) {
-      if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'object' && v[0] !== null) {
-        return v as Record<string, unknown>[];
-      }
-    }
-  }
-  return [];
-}
+import { PageFatalErrorState } from '../components/layout/PageLoadStates';
 
-function money(row: Record<string, unknown>): string {
-  const n = Number(row.totalAmount ?? row.TotalAmount);
-  if (!Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
-}
+import { Button, Select, SkeletonLoading } from '../components/ui';
 
-function datePt(row: Record<string, unknown>): string {
-  const s = pickStr(row, 'issueDate', 'IssueDate');
-  return formatDatePtBr(s, '—');
-}
+import { useAuth } from '../context/AuthContext';
 
-function badgeClass(tone: string): string {
-  return `op-badge op-badge--${tone}`;
-}
+import { mapAuditoriaExpenseRow } from '../features/auditoria/lib/expense-map';
+
+import { ComprasExpenseListItem } from '../features/compras/components/ComprasExpenseListItem';
+
+import { useComprasApproval, useComprasExpenses } from '../features/compras/hooks/useComprasExpenses';
+
+import { COMPRAS_FILTERS, type ComprasFilterKey } from '../features/compras/lib/compras-filters';
+
+import { canApproveCompras } from '../lib/permissions/rbac';
+
+import { formatApiError } from '../lib/api-error-message';
+
+import { cn } from '../lib/cn';
+
+const moneyBr = (n: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 
 const ComprasPage: React.FC = () => {
-  const [raw, setRaw] = useState<unknown>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [processingFilter, setProcessingFilter] = useState('');
+  const { profile } = useAuth();
 
-  const load = useCallback(async () => {
+  const canApprove = canApproveCompras(profile?.role);
+
+  const [filter, setFilter] = useState<ComprasFilterKey>('');
+
+  const { data, isLoading, isFetching, isError, error, refetch } = useComprasExpenses(filter);
+
+  const approval = useComprasApproval(filter);
+
+  const expenses = useMemo(
+    () => (data?.rows ?? []).map((r) => mapAuditoriaExpenseRow(r)),
+
+    [data?.rows]
+  );
+
+  const handleApproval = async (id: string, approve: boolean) => {
     try {
-      setLoading(true);
-      const filters: Record<string, unknown> = { page: 1, pageSize: 100 };
-      if (processingFilter) filters.processingStatus = processingFilter;
-      const res = await EcondomizaApi.listExpenses(filters);
-      setRaw(res.data);
-      setError(null);
+      await approval.mutateAsync({ id, approve });
     } catch (e) {
-      console.error(e);
-      setError(formatApiError(e));
-    } finally {
-      setLoading(false);
+      alert(formatApiError(e));
     }
-  }, [processingFilter]);
+  };
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  if (isLoading) {
+    return (
+      <div className="space-y-4" aria-busy="true">
+        <SkeletonLoading size="lg" className="w-64 rounded-lg" />
 
-  const rows = useMemo(() => extractExpenseRows(raw), [raw]);
-  const meta = useMemo(() => {
-    const o = asRecord(raw);
-    if (!o) return { total: rows.length };
-    const t = pickNum(o, 'total', 'Total');
-    return { total: t ?? rows.length };
-  }, [raw, rows.length]);
-
-  if (loading) {
-    return <PageLoadingState id="compras-page" message="Carregando despesas…" />;
+        <SkeletonLoading size="md" className="w-full rounded-xl" />
+      </div>
+    );
   }
 
-  if (error && rows.length === 0) {
-    return <PageFatalErrorState id="compras-page" message={error} onRetry={() => void load()} />;
+  if (isError && !data) {
+    return (
+      <PageFatalErrorState id="compras-page" message={formatApiError(error)} onRetry={() => void refetch()} />
+    );
   }
 
   return (
-    <div className="page" id="compras-page">
+    <div className="page w-full space-y-8" id="compras-page">
       <PageHeader
-        title="Compras"
-        description="Lista operacional: pipeline técnica, aprovação, liquidação e confiança do enriquecimento. Abra o detalhe para a linha temporal e ações."
-        quickLinks={[
-          { to: '/auditoria', label: 'Auditoria e upload' },
-          { to: '/fornecedores', label: 'Fornecedores' },
-          { to: '/conformidades', label: 'Obrigações' },
-        ]}
+        eyebrow="Governança"
+        title="Aprovação de despesas"
+        description={
+          canApprove
+            ? 'Revise despesas cadastradas pela administradora e registre aprovação ou reprovação.'
+            : 'Consulta de despesas do condomínio — aprovação restrita a Síndico e Conselho.'
+        }
+        toolbar={
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={isFetching}
+            onClick={() => void refetch()}
+            icon={<RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} aria-hidden />}
+          >
+            Atualizar
+          </Button>
+        }
       />
-      {error && <div className="banner banner--error">{error}</div>}
 
-      <div className="card op-list-filters">
-        <label className="op-field op-field--inline">
-          <span>Filtrar por pipeline</span>
-          <select value={processingFilter} onChange={(e) => setProcessingFilter(e.target.value)}>
-            {PROCESSING_STATUS_FILTER_OPTIONS.map((o) => (
-              <option key={o.value || 'all'} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" className="btn-small secondary" onClick={() => void load()}>
-          Aplicar / atualizar
-        </button>
-        <span className="op-muted op-small">
-          {meta.total != null && `Total reportado: ${meta.total}`}
-        </span>
+      <div className="rounded-xl border border-surface-border bg-surface-card p-4 shadow-macro-sm">
+        <div className="w-full sm:max-w-md">
+          <Select
+            label="Filtrar por estado"
+            id="compras-filter"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as ComprasFilterKey)}
+            options={COMPRAS_FILTERS}
+            icon={<SlidersHorizontal className="h-4 w-4" aria-hidden />}
+          />
+        </div>
       </div>
 
-      {!error && rows.length === 0 && (
-        <div className="card">
-          <p>Nenhuma despesa encontrada para o filtro pedido.</p>
+      {isError && (
+        <div className="banner banner--error" role="alert">
+          {formatApiError(error)}
         </div>
       )}
 
-      {rows.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h2>Despesas ({rows.length})</h2>
-          </div>
-          <TableScrollHint />
-          <div className="purchases-table table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Descrição</th>
-                  <th>Categoria</th>
-                  <th>Emissão</th>
-                  <th>Operação</th>
-                  <th>Valor</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => {
-                  const id = pickStr(row, 'id', 'Id');
-                  const proc = pickStr(row, 'processingStatus', 'ProcessingStatus');
-                  const appr = pickStr(row, 'approvalStatus', 'ApprovalStatus');
-                  const sett = pickStr(row, 'settlementStatus', 'SettlementStatus');
-                  const conf = pickNum(row, 'confidenceScore', 'ConfidenceScore');
-                  const lowConf = pickBool(row, 'lowConfidence', 'LowConfidence');
-                  const fail = pickStr(row, 'processingFailureReason', 'ProcessingFailureReason');
-                  return (
-                    <tr key={id + String(i)}>
-                      <td>{pickStr(row, 'description', 'Description')}</td>
-                      <td>{pickStr(row, 'category', 'Category')}</td>
-                      <td>{datePt(row)}</td>
-                      <td>
-                        <div className="op-list-badges">
-                          <span className={badgeClass(processingStatusTone(proc))} title="Pipeline técnica">
-                            {humanizeProcessingPt(proc)}
-                          </span>
-                          <span className={badgeClass(approvalStatusTone(appr))} title="Aprovação">
-                            {humanizeApprovalPt(appr)}
-                          </span>
-                          <span className={badgeClass(settlementStatusTone(sett))} title="Liquidação">
-                            {humanizeSettlementPt(sett)}
-                          </span>
-                          <span className={badgeClass(confidenceTone(conf, lowConf))} title="Confiança (0–1)">
-                            {formatConfidencePercent(conf)}
-                            {lowConf ? ' ⚠' : ''}
-                          </span>
-                          {fail && (
-                            <span className="op-badge op-badge--danger" title={fail}>
-                              Falha
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td>{money(row)}</td>
-                      <td>
-                        {id ? (
-                          <Link className="btn-small secondary" to={`/compras/${id}`}>
-                            Detalhe
-                          </Link>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      <section
+        className={cn(
+          'overflow-hidden rounded-xl border border-surface-border bg-surface-card shadow-macro-sm transition-opacity',
+
+          isFetching && 'opacity-70'
+        )}
+        aria-busy={isFetching}
+      >
+        {expenses.length === 0 ? (
+          <p className="px-5 py-12 text-center text-sm text-text-muted">Nenhuma despesa encontrada.</p>
+        ) : (
+          <ul className="divide-y divide-surface-border" role="list">
+            {expenses.map((exp) => (
+              <ComprasExpenseListItem
+                key={exp.id}
+                expense={exp}
+                canApprove={canApprove}
+                approvalPending={approval.isPending}
+                onApprove={(id, approve) => void handleApproval(id, approve)}
+                formatMoney={moneyBr}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 };

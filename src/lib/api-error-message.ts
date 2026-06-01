@@ -32,8 +32,24 @@ function formatApiErrorCore(status: number | undefined, message: string, correla
       if (custom) return `${custom}${cid}`;
       return `Você não tem permissão para esta operação no seu perfil ou condomínio.${cid}`;
     }
+    case 400: {
+      const custom = preferServerMessage(status, message);
+      if (custom) return `${custom}${cid}`;
+      return `Parâmetros inválidos na consulta. Verifique os filtros selecionados.${cid}`;
+    }
     case 404:
       return `Recurso não encontrado ou indisponível neste ambiente.${cid}`;
+    case 500: {
+      const lower = message.toLowerCase();
+      if (lower.includes('postgres') || lower.includes('database')) {
+        return `Não foi possível carregar os dados desta despesa. O registro pode estar indisponível — volte à lista de compras ou tente novamente.${cid}`;
+      }
+      const custom = preferServerMessage(status, message);
+      if (custom && !lower.includes('postgresexception')) {
+        return `${custom}${cid}`;
+      }
+      return `Erro interno no servidor. Tente novamente em instantes.${cid}`;
+    }
     case 429:
       return `Muitas solicitações. Tente novamente em alguns instantes.${cid}`;
     case 502:

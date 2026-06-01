@@ -1,31 +1,36 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-
-const rootDir = path.dirname(fileURLToPath(import.meta.url));
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  server: {
-    port: 5173,
-    strictPort: false,
-    proxy: {
-      '/api': {
-        target: process.env.VITE_DEV_PROXY_TARGET ?? 'http://localhost:5000',
-        changeOrigin: true,
+  plugins: [tailwindcss(), react()],
+  resolve: {
+    alias: {
+      '@': __dirname,
+    },
+  },
+  // ============================================
+  // OTIMIZAÇÃO DE BUILD — Compressão de assets
+  // ============================================
+  build: {
+    // Minificação e compressão do bundle
+    minify: 'esbuild',
+    // Chunk size limits para monitoramento
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-router': ['react-router-dom'],
+          'vendor-query': ['@tanstack/react-query'],
+          'vendor-ui': ['lucide-react'],
+        },
       },
     },
   },
-  build: {
-    outDir: 'dist',
-    emptyOutDir: true,
-    rollupOptions: {
-      input: {
-        main: path.resolve(rootDir, 'index.html'),
-        auth: path.resolve(rootDir, 'auth.html'),
-      },
-    },
+  // ============================================
+  // OTIMIZAÇÃO DE IMAGENS — Plugin de compressão
+  // ============================================
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query', 'lucide-react'],
   },
 });

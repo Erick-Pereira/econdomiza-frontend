@@ -26,17 +26,17 @@ type NavSpecEntry = {
   end?: boolean;
 };
 
-/** Ordem do menu lateral (alinhada ao produto). */
+/** Ordem do menu lateral (auditoria de gastos — ver PRODUCT_POSITIONING). */
 export const AUTHENTICATED_NAV_SPEC: readonly NavSpecEntry[] = [
-  { path: '/dashboard', label: 'Dashboard', emoji: '📊', end: true },
-  { path: '/fornecedores', label: 'Fornecedores', emoji: '🤝' },
-  { path: '/compras', label: 'Compras', emoji: '🛒' },
-  { path: '/produtos', label: 'Produtos', emoji: '📦' },
-  { path: '/relatorios', label: 'Relatórios', emoji: '📑' },
-  { path: '/insights', label: 'Insights', emoji: '💡' },
-  { path: '/conformidades', label: 'Obrigações', emoji: '📋' },
-  { path: '/alertas', label: 'Alertas', emoji: '🔔' },
-  { path: '/notificacoes', label: 'Notificações', emoji: '📣' },
+  { path: '/dashboard', label: 'Painel', emoji: '📊', end: true },
   { path: '/auditoria', label: 'Auditoria', emoji: '🔍' },
+  { path: '/compras', label: 'Despesas', emoji: '🛒' },
+  { path: '/fornecedores', label: 'Fornecedores', emoji: '🤝' },
+  { path: '/produtos', label: 'Produtos', emoji: '📦' },
+  { path: '/conformidades', label: 'Conformidade', emoji: '📋' },
+  { path: '/alertas', label: 'Alertas', emoji: '🔔' },
+  { path: '/insights', label: 'Insights', emoji: '💡' },
+  { path: '/relatorios', label: 'Relatórios', emoji: '📑' },
+  { path: '/notificacoes', label: 'Notificações', emoji: '📣' },
   { path: '/configuracoes', label: 'Conta', emoji: '⚙️' },
 ];

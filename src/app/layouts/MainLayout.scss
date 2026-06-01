@@ -1,0 +1,236 @@
+// MainLayout Styles - SIMC-AG/Econdomiza Frontend
+
+/*
+ * Main Layout Styles
+ * Location: src/app/layouts/MainLayout.scss
+ */
+
+// Root Container
+.MainLayout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+// Sidebar
+.sidebar {
+  width: 280px;
+  background-color: #f3f4f6;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+
+  .logo-section {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: #1f2937;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+
+    .logo-text {
+      color: #2563eb;
+    }
+  }
+
+  .sidebar-menu {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 12px;
+      margin-bottom: 4px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: #374151;
+      text-decoration: none;
+
+      &:hover {
+        background-color: #e5e7eb;
+      }
+
+      &.active {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+      }
+
+      .menu-icon {
+        margin-right: 10px;
+        font-size: 20px;
+      }
+
+      .menu-label {
+        font-size: 14px;
+      }
+    }
+  }
+}
+
+// Main Content Area
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  overflow: hidden;
+
+  // Header
+  .header {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    border-bottom: 1px solid #e5e7eb;
+    background-color: #ffffff;
+
+    .page-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .user-menu-btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+      background-color: white;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background-color: #f9fafb;
+      }
+    }
+  }
+
+  // Page Content Area
+  .page-content {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+
+    .content-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+  }
+}
+
+// Empty State Styles (from UI/UX framework)
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #6b7280;
+
+  .empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+
+  .empty-state-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+  }
+
+  .empty-state-description {
+    font-size: 14px;
+    text-align: center;
+    max-width: 400px;
+    margin-bottom: 24px;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+// Responsive Design (Tailwind classes applied)
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: -280px;
+    z-index: 1200;
+    
+    &.open {
+      left: 0;
+    }
+  }
+
+  .header {
+    padding: 0 16px;
+  }
+}
+
+// Scrollbar Styling
+.MainLayout,
+.sidebar,
+.page-content {
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+
+    &:hover {
+      background: #a1a1a1;
+    }
+  }
+}
+
+// Utility Classes for Z-Index Stacking
+.overlay {
+  z-index: 1250;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+
+  &.open {
+    display: flex !important;
+  }
+}
+
+.menu-button {
+  z-index: 1300;
+  position: relative;
+  background-color: #ffffff;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+  &:hover {
+    background-color: #f9fafb;
+  }
+}

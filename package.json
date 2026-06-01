@@ -12,14 +12,33 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{html,json}\" \"auth.html\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"*.{html,json}\" \"auth.html\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"*.{html,json}\" \"auth.html\"",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "src/**/*.css": [
+      "prettier --write"
+    ],
+    "*.{html,json}": [
+      "prettier --write"
+    ],
+    "auth.html": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.100.14",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.40.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.15.0",
-    "react-toastify": "^11.1.0"
+    "react-toastify": "^11.1.0",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -33,7 +52,11 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.5",
+    "lucide-react": "^1.16.0",
     "prettier": "^3.8.3",
+    "sass-embedded": "^1.100.0",
     "tailwindcss": "^4.3.0",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.59.3",

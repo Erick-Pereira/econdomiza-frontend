@@ -3,14 +3,9 @@ import {
   type DashboardSummaryResult,
 } from './api/dashboard-summary-fetch';
 import { DEFAULT_REGISTER_ROLE, type TenantRole } from '../domain/auth-roles';
-import {
-  buildQuery,
-  gatewayCorrelationId,
-  gatewayMessage,
-  parseJsonBody,
-  unwrapGatewayJson,
-} from './http';
+import { buildQuery, gatewayCorrelationId, gatewayMessage, parseJsonBody, unwrapGatewayJson } from './http';
 import { GatewayHttpError, isAuthPathNoRefresh, resolveGatewayBase } from './gateway';
+import { forceLoginRedirect } from './browser-session';
 
 function unwrapNestedApiSuccessPayload(payload: unknown): unknown {
   let cur: unknown = payload;
@@ -86,12 +81,10 @@ const EcondomizaApi = {
         return false;
       }
       const inner = unwrapGatewayJson(parsed);
-      const payload =
-        inner && typeof inner === 'object' ? (inner as Record<string, unknown>) : {};
+      const payload = inner && typeof inner === 'object' ? (inner as Record<string, unknown>) : {};
       const access = payload.accessToken != null ? String(payload.accessToken) : '';
       if (!access) return false;
-      const nextRefresh =
-        payload.refreshToken != null ? String(payload.refreshToken) : undefined;
+      const nextRefresh = payload.refreshToken != null ? String(payload.refreshToken) : undefined;
       this.setTokens(access, nextRefresh);
       return true;
     })();
@@ -149,6 +142,14 @@ const EcondomizaApi = {
       if (ok) {
         return this.request<T>(path, { ...opts, __retriedAfterRefresh: true });
       }
+
+      console.error('[EcondomizaApi] Token inválido - refresh falhou. Redirecionando para login.');
+      forceLoginRedirect();
+
+      throw new GatewayHttpError('Sessão expirada. Por favor, faça login novamente.', {
+        status: 401,
+        body: parsed,
+      });
     }
 
     if (!response.ok) {
@@ -159,6 +160,10 @@ const EcondomizaApi = {
         body: parsed,
         ...(cid ? { correlationId: cid } : {}),
       });
+    }
+
+    if (response.status === 204 || text.trim() === '') {
+      return { data: null as T };
     }
 
     const inner = unwrapGatewayJson(parsed) as T;
@@ -185,6 +190,7 @@ const EcondomizaApi = {
     if (response.status === 401 && !retriedAfterRefresh) {
       const ok = await this.refreshSession();
       if (ok) return this.downloadReport(period, params, true);
+      forceLoginRedirect();
     }
 
     if (!response.ok) {
@@ -212,7 +218,8 @@ const EcondomizaApi = {
       method: 'POST',
       body: { tenantId: condominioId, email, password },
     });
-    const payload = result.data && typeof result.data === 'object' ? (result.data as Record<string, unknown>) : {};
+    const payload =
+      result.data && typeof result.data === 'object' ? (result.data as Record<string, unknown>) : {};
     if (payload.accessToken) {
       this.setTokens(
         String(payload.accessToken),
@@ -225,7 +232,11 @@ const EcondomizaApi = {
   lookupCondominios(q: string) {
     const term = q != null && String(q).trim() !== '' ? String(q).trim() : '';
     const qs = term ? `?q=${encodeURIComponent(term)}` : '';
-    return this.request(`/api/condominios/lookup${qs}`);
+    console.log('[EcondomizaApi] Chamando /api/condominios/lookup com termo:', term);
+    return this.request(`/api/condominios/lookup${qs}`).then((res) => {
+      console.log('[EcondomizaApi] Resposta lookupCondominios:', res.data);
+      return res;
+    });
   },
 
   async register(params: {
@@ -245,7 +256,8 @@ const EcondomizaApi = {
         role: params.role ?? DEFAULT_REGISTER_ROLE,
       },
     });
-    const payload = result.data && typeof result.data === 'object' ? (result.data as Record<string, unknown>) : {};
+    const payload =
+      result.data && typeof result.data === 'object' ? (result.data as Record<string, unknown>) : {};
     if (payload.accessToken) {
       this.setTokens(
         String(payload.accessToken),
@@ -398,10 +410,10 @@ const EcondomizaApi = {
     id: string,
     body: { amount: number; paymentDate: string; method: string; referenceCode?: string | null }
   ) {
-    return this.request<{ paymentId: string }>(
-      `/api/expenses/${encodeURIComponent(id)}/payments`,
-      { method: 'POST', body }
-    );
+    return this.request<{ paymentId: string }>(`/api/expenses/${encodeURIComponent(id)}/payments`, {
+      method: 'POST',
+      body,
+    });
   },
 
   refundExpensePayment(id: string, paymentId: string, reason: string) {
@@ -416,6 +428,9 @@ const EcondomizaApi = {
 
   listSuppliers(filters: Record<string, unknown> = {}) {
     return this.request(`/api/suppliers${buildQuery(filters)}`);
+  },
+  getSupplierQualityAnalysis() {
+    return this.request('/api/suppliers/quality-analysis');
   },
   getSupplier(id: string) {
     return this.request(`/api/suppliers/${encodeURIComponent(id)}`);
@@ -570,9 +585,7 @@ const EcondomizaApi = {
   },
 
   async notificationPreferences(userId: string) {
-    const res = await this.request<unknown>(
-      `/api/notifications/preferences/${encodeURIComponent(userId)}`
-    );
+    const res = await this.request<unknown>(`/api/notifications/preferences/${encodeURIComponent(userId)}`);
     return { data: unwrapNestedApiSuccessPayload(res.data) };
   },
 

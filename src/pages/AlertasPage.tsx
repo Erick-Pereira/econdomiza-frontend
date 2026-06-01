@@ -1,137 +1,151 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  formatAlertDateTimePtBr,
-  isAlertRowResolved,
-  prioridadeLabelFromSeverity,
-  severityUpperFromAlertRow,
-} from '../lib/alert-row';
-import { normalizeListPayload } from '../lib/api-normalize';
-import { formatApiError } from '../lib/api-error-message';
-import { EcondomizaApi } from '../services';
+import React, { useMemo, useState } from 'react';
+import { RefreshCw, Search } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
-import { PageFatalErrorState, PageLoadingState } from '../components/layout/PageLoadStates';
-import { TableScrollHint } from '../components/layout/TableScrollHint';
+import { PageFatalErrorState } from '../components/layout/PageLoadStates';
+import { Badge, Button, Input, Select, SkeletonLoading } from '../components/ui';
+import { useAlertasList } from '../features/alertas/hooks/useAlertasList';
+import { formatAlertDatePtBr } from '../lib/alert-row';
+import { cn } from '../lib/cn';
 
-interface AlertRow {
-  id: string;
-  tipo: string;
-  condominioNome: string;
-  titulo: string;
-  categoria: string;
-  prioridade: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
+type StatusFilter = 'todos' | 'aberto' | 'resolvido';
+
+const PRIORITY_VARIANT: Record<string, 'error' | 'warning' | 'neutral'> = {
+  alta: 'error',
+  media: 'warning',
+  baixa: 'neutral',
+};
 
 const AlertasPage: React.FC = () => {
-  const [alertas, setAlertas] = useState<AlertRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, isFetching, isError, error, refetch } = useAlertasList();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('aberto');
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [listRes, condoRes] = await Promise.all([
-        EcondomizaApi.listAlerts({ page: 1, pageSize: 100 }),
-        EcondomizaApi.getMyCondominio(),
-      ]);
-      const condo = condoRes.data as { nome?: string; name?: string };
-      const nome = String(condo?.nome ?? condo?.name ?? 'Condomínio');
-      const items = normalizeListPayload(listRes.data);
-      const rows: AlertRow[] = (items as Record<string, unknown>[]).map((item) => {
-        const sev = severityUpperFromAlertRow(item);
-        const prio = prioridadeLabelFromSeverity(sev);
-        const msg = String(item.message ?? item.title ?? item.titulo ?? '');
-        const product = String(item.productName ?? '');
-        return {
-          id: String(item.id ?? ''),
-          tipo: String(item.type ?? item.tipo ?? 'alerta'),
-          condominioNome: nome,
-          titulo: product ? `${product} — ${msg}` : msg,
-          categoria: String(item.alertCategory ?? item.category ?? item.categoria ?? '—'),
-          prioridade: prio,
-          status: isAlertRowResolved(item) ? 'resolvido' : 'aberto',
-          createdAt: String(item.createdAt ?? ''),
-          updatedAt: String(item.updatedAt ?? item.createdAt ?? ''),
-        };
-      });
-      setAlertas(rows);
-      setError(null);
-    } catch (e) {
-      console.error(e);
-      setError(formatApiError(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const filtered = useMemo(() => {
+    const rows = data ?? [];
+    const q = search.trim().toLowerCase();
+    return rows.filter((row) => {
+      const matchStatus =
+        statusFilter === 'todos' ||
+        (statusFilter === 'aberto' && row.status === 'aberto') ||
+        (statusFilter === 'resolvido' && row.status === 'resolvido');
+      const matchSearch =
+        !q ||
+        row.titulo.toLowerCase().includes(q) ||
+        row.categoria.toLowerCase().includes(q) ||
+        row.tipo.toLowerCase().includes(q);
+      return matchStatus && matchSearch;
+    });
+  }, [data, search, statusFilter]);
 
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
-
-  if (loading) {
-    return <PageLoadingState id="alertas-page" message="Carregando alertas…" skeletonMaxWidth={640} />;
+  if (isLoading) {
+    return (
+      <div className="w-full space-y-6" aria-busy="true">
+        <SkeletonLoading size="lg" className="w-64 rounded-lg" />
+        <SkeletonLoading size="md" className="w-full rounded-xl" />
+        <SkeletonLoading size="md" className="w-full rounded-xl" />
+      </div>
+    );
   }
 
-  if (error && !alertas.length) {
-    return <PageFatalErrorState id="alertas-page" message={error} onRetry={() => void loadData()} />;
+  if (isError && !data) {
+    return (
+      <PageFatalErrorState
+        id="alertas-page"
+        message={error instanceof Error ? error.message : 'Erro ao carregar alertas.'}
+        onRetry={() => void refetch()}
+      />
+    );
   }
 
   return (
-    <div className="page" id="alertas-page">
+    <div className="page w-full space-y-8" id="alertas-page">
       <PageHeader
-        title="Alertas"
-        description="Prioridade e estado dos alertas gerados para o condomínio. Atualize para sincronizar com o servidor."
-        quickLinks={[
-          { to: '/notificacoes', label: 'Notificações' },
-          { to: '/insights', label: 'Insights operacionais' },
-          { to: '/compras', label: 'Compras' },
-        ]}
+        eyebrow="Monitorização"
+        title="Central de alertas"
+        description="Alertas de preço, conformidade e anomalias detectadas pela auditoria inteligente."
         toolbar={
-          <button type="button" className="btn-small" disabled={loading} onClick={() => void loadData()}>
-            {loading ? 'A atualizar…' : 'Atualizar'}
-          </button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={isFetching}
+            onClick={() => void refetch()}
+            icon={<RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} aria-hidden />}
+          >
+            {isFetching ? 'A atualizar…' : 'Atualizar'}
+          </Button>
         }
       />
 
-      {error && alertas.length > 0 && <div className="banner banner--error">{error}</div>}
-
-      <TableScrollHint />
-      <div className="alerts-container table-scroll">
-        {alertas.length > 0 ? (
-          <table className="alerts-table">
-            <thead>
-              <tr>
-                <th>Tipo</th>
-                <th>Condomínio</th>
-                <th>Título</th>
-                <th>Categoria</th>
-                <th>Prioridade</th>
-                <th>Estado</th>
-                <th>Criado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {alertas.map((a) => (
-                <tr key={a.id}>
-                  <td>{a.tipo}</td>
-                  <td>{a.condominioNome}</td>
-                  <td>{a.titulo}</td>
-                  <td>{a.categoria}</td>
-                  <td>{a.prioridade}</td>
-                  <td>{a.status}</td>
-                  <td>{formatAlertDateTimePtBr(a.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="empty-state">
-            <p>Sem alertas ou sem permissão (Conselho).</p>
-          </div>
-        )}
+      <div className="flex flex-col gap-4 rounded-xl border border-surface-border bg-surface-card p-4 shadow-macro-sm sm:flex-row sm:items-end">
+        <div className="relative flex-1">
+          <Search
+            className="pointer-events-none absolute left-3 top-[2.35rem] h-4 w-4 text-text-muted"
+            aria-hidden
+          />
+          <Input
+            label="Buscar"
+            id="alertas-search"
+            className="pl-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Título, categoria ou tipo…"
+          />
+        </div>
+        <div className="w-full sm:w-48">
+          <Select
+            label="Estado"
+            id="alertas-status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            options={[]}
+          >
+            <option value="todos">Todos</option>
+            <option value="aberto">Abertos</option>
+            <option value="resolvido">Resolvidos</option>
+          </Select>
+        </div>
       </div>
+
+      <section className="rounded-xl border border-surface-border bg-surface-card shadow-macro-sm">
+        <header className="border-b border-surface-border px-5 py-4">
+          <h2 className="text-base font-semibold text-text-main">
+            {filtered.length} alerta(s)
+            {data?.[0]?.condominioNome ? ` · ${data[0].condominioNome}` : ''}
+          </h2>
+        </header>
+
+        {filtered.length === 0 ? (
+          <div className="px-5 py-12 text-center text-sm text-text-muted">
+            Nenhum alerta corresponde aos filtros selecionados.
+          </div>
+        ) : (
+          <ul className="divide-y divide-surface-border" role="list">
+            {filtered.map((alert) => (
+              <li
+                key={alert.id}
+                className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:gap-4"
+              >
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant={PRIORITY_VARIANT[alert.prioridade] ?? 'neutral'}>{alert.prioridade}</Badge>
+                  <Badge variant={alert.status === 'resolvido' ? 'ok' : 'warning'}>
+                    {alert.status === 'resolvido' ? 'Resolvido' : 'Aberto'}
+                  </Badge>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-text-main">{alert.titulo}</p>
+                  <p className="mt-0.5 text-sm text-text-muted">
+                    {alert.categoria} · {alert.tipo}
+                  </p>
+                </div>
+                <time className="shrink-0 text-xs text-text-muted" dateTime={alert.createdAt}>
+                  {formatAlertDatePtBr(alert.createdAt)}
+                </time>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 };

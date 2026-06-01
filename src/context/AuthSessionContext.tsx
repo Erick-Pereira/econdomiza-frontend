@@ -10,6 +10,7 @@ import React, {
 } from 'react';
 import { clearAllClientSession, SESSION_STORAGE_KEYS } from '../lib/browser-session';
 import { EcondomizaApi } from '../services';
+import { useAuth } from './AuthContext';
 
 export interface UserProfile {
   id: string;
@@ -54,37 +55,18 @@ export interface AuthSessionProviderProps {
 export const DEFAULT_SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000; // 8 horas
 export const REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutos antes de expirar
 
-export const AuthSessionContext = createContext<AuthSessionValue & { actions: AuthSessionActions } | null>(null);
+export const AuthSessionContext = createContext<(AuthSessionValue & { actions: AuthSessionActions }) | null>(
+  null
+);
 
 export const AuthSessionProvider: React.FC<AuthSessionProviderProps> = ({
   children,
   initialProfile,
-  sessionTimeoutMs = DEFAULT_SESSION_TIMEOUT_MS,
+  sessionTimeoutMs: _sessionTimeoutMs = DEFAULT_SESSION_TIMEOUT_MS,
 }) => {
-  // TEMP_AUTH_DISABLED: Flag para desativar autenticação temporariamente
-  const TEMP_AUTH_DISABLED = localStorage.getItem('TEMP_AUTH_DISABLED_MODE') === 'true';
-
-  // TEMP_AUTH_DISABLED: Usuário fake para desenvolvimento sem backend
-  const TEMP_FAKE_PROFILE: UserProfile = {
-    id: 'temp-dev-user-123',
-    email: 'dev@localhost.test',
-    name: 'Dev User (Mock)',
-    role: 'ADMIN',
-    tenantId: '00000000-0000-0000-0000-000000000000',
-    createdAt: new Date().toISOString(),
-  };
-
-  // TEMP_AUTH_DISABLED: Token fake com 8 horas de expiração
-  const TEMP_FAKE_TOKENS: AuthTokens = {
-    accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZW1wLWRldi11c2VyLTEyMyIsImV4cCI6OTk5OTk5OTk5OX0.temp_fake_token_for_development_only',
-    refreshToken: 'temp_refresh_token_dev_only',
-    expiresIn: 8 * 60 * 60,
-    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
-  };
-
-  const [profile, setProfile] = useState<UserProfile | null>(TEMP_AUTH_DISABLED ? TEMP_FAKE_PROFILE : (initialProfile ?? null));
-  const [tokens, setTokens] = useState<AuthTokens | null>(TEMP_AUTH_DISABLED ? TEMP_FAKE_TOKENS : null);
-  const [isLoading, setIsLoading] = useState(!TEMP_AUTH_DISABLED); // TEMP_AUTH_DISABLED: isLoading = false immediately
+  const [profile, setProfile] = useState<UserProfile | null>(initialProfile ?? null);
+  const [tokens, setTokens] = useState<AuthTokens | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loginCount, setLoginCount] = useState(0);
   /** Último login ou renovação bem-sucedida de tokens (ISO), para contexto sem refs em `useMemo`. */
@@ -111,21 +93,23 @@ export const AuthSessionProvider: React.FC<AuthSessionProviderProps> = ({
     }
   }, []);
 
-  const scheduleRefresh = useCallback(
-    (remainingMs: number) => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
+  const scheduleRefresh = useCallback((remainingMs: number) => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
 
-      const thresholdMs = sessionTimeoutMs - REFRESH_THRESHOLD_MS;
-      if (remainingMs > thresholdMs) {
-        refreshTimeoutRef.current = setTimeout(() => {
-          void handleRefreshTokenRef.current();
-        }, REFRESH_THRESHOLD_MS - remainingMs);
-      }
-    },
-    [sessionTimeoutMs]
-  );
+    if (remainingMs <= 0) return;
+
+    if (remainingMs <= REFRESH_THRESHOLD_MS) {
+      void handleRefreshTokenRef.current();
+      return;
+    }
+
+    refreshTimeoutRef.current = setTimeout(() => {
+      void handleRefreshTokenRef.current();
+    }, remainingMs - REFRESH_THRESHOLD_MS);
+  }, []);
 
   const handleRefreshToken = useCallback(async (): Promise<boolean> => {
     if (!tokens?.refreshToken) return false;
@@ -178,12 +162,6 @@ export const AuthSessionProvider: React.FC<AuthSessionProviderProps> = ({
 
   // Persistir sessão no localStorage
   useEffect(() => {
-    // TEMP_AUTH_DISABLED: Skip localStorage check se modo desativado ativado
-    if (TEMP_AUTH_DISABLED) {
-      console.warn('[TEMP_AUTH_DISABLED] Autenticação desativada - usando usuário mock. Remova TEMP_AUTH_DISABLED_MODE=true do localStorage para reativar.');
-      return;
-    }
-
     const storedProfile = localStorage.getItem(SESSION_STORAGE_KEYS.profile);
     const storedTokens = localStorage.getItem(SESSION_STORAGE_KEYS.tokens);
     const storedLoginCount = localStorage.getItem(SESSION_STORAGE_KEYS.loginCount);
@@ -220,23 +198,26 @@ export const AuthSessionProvider: React.FC<AuthSessionProviderProps> = ({
     }
   }, [handleLogout, scheduleRefresh]);
 
-  const handleLogin = useCallback(async (newProfile: UserProfile, newTokens: AuthTokens) => {
-    setProfile(newProfile);
-    setTokens(newTokens);
-    setLoginCount((prev) => {
-      const next = prev + 1;
-      localStorage.setItem(SESSION_STORAGE_KEYS.loginCount, String(next));
-      return next;
-    });
-    localStorage.setItem(SESSION_STORAGE_KEYS.profile, JSON.stringify(newProfile));
-    localStorage.setItem(SESSION_STORAGE_KEYS.tokens, JSON.stringify(newTokens));
+  const handleLogin = useCallback(
+    async (newProfile: UserProfile, newTokens: AuthTokens) => {
+      setProfile(newProfile);
+      setTokens(newTokens);
+      setLoginCount((prev) => {
+        const next = prev + 1;
+        localStorage.setItem(SESSION_STORAGE_KEYS.loginCount, String(next));
+        return next;
+      });
+      localStorage.setItem(SESSION_STORAGE_KEYS.profile, JSON.stringify(newProfile));
+      localStorage.setItem(SESSION_STORAGE_KEYS.tokens, JSON.stringify(newTokens));
 
-    setLastLoginAt(new Date().toISOString());
-    const expiresAt = new Date(newTokens.expiresAt);
-    scheduleRefresh(expiresAt.getTime() - Date.now());
+      setLastLoginAt(new Date().toISOString());
+      const expiresAt = new Date(newTokens.expiresAt);
+      scheduleRefresh(expiresAt.getTime() - Date.now());
 
-    setIsLoading(false);
-  }, [scheduleRefresh]);
+      setIsLoading(false);
+    },
+    [scheduleRefresh]
+  );
 
   const handleUpdateProfile = useCallback((updatedProfile: UserProfile) => {
     setProfile(updatedProfile);
@@ -268,19 +249,8 @@ export const AuthSessionProvider: React.FC<AuthSessionProviderProps> = ({
     [profile, tokens, isLoading, isRefreshing, lastLoginAt, loginCount, actions]
   );
 
-  return (
-    <AuthSessionContext.Provider value={value}>
-      {children}
-    </AuthSessionContext.Provider>
-  );
+  return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>;
 };
 
-export const useAuthSession = () => {
-  const context = React.useContext(AuthSessionContext);
-
-  if (!context) {
-    throw new Error('useAuthSession must be used within an AuthSessionProvider');
-  }
-
-  return context;
-};
+/** @deprecated Prefer `useAuth` — alias para compatibilidade com páginas legadas. */
+export const useAuthSession = () => useAuth();

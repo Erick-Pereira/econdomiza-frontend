@@ -2,6 +2,7 @@ import React, { lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import NotFoundPage from '../pages/NotFoundPage';
 import { AUTHENTICATED_PAGE_LOADERS } from './authenticated-route-registry';
+import { roleCanAccessRoute, hasRole } from '../lib/permissions/rbac';
 
 const DashboardPage = lazy(AUTHENTICATED_PAGE_LOADERS['/dashboard']);
 const ComprasPage = lazy(AUTHENTICATED_PAGE_LOADERS['/compras']);
@@ -18,22 +19,108 @@ const AuditoriaPage = lazy(AUTHENTICATED_PAGE_LOADERS['/auditoria']);
 const InsightsPage = lazy(AUTHENTICATED_PAGE_LOADERS['/insights']);
 const RelatoriosPage = lazy(AUTHENTICATED_PAGE_LOADERS['/relatorios']);
 const ConfiguracoesPage = lazy(AUTHENTICATED_PAGE_LOADERS['/configuracoes']);
+const MoradorHomePage = lazy(() => import('../pages/MoradorHomePage'));
+
+type Props = {
+  defaultRoute?: string;
+  userRole?: string;
+};
+
+/** Guard: redireciona para defaultRoute se papel não tem acesso. */
+function RoleGuard({
+  path,
+  userRole,
+  defaultRoute,
+  children,
+}: {
+  path: string;
+  userRole?: string;
+  defaultRoute?: string;
+  children: React.ReactNode;
+}) {
+  if (!roleCanAccessRoute(userRole, path)) {
+    return <Navigate to={defaultRoute ?? '/configuracoes'} replace />;
+  }
+  return <>{children}</>;
+}
 
 /**
  * Rotas autenticadas (lazy). O `Suspense` fica no `LazyShell` em `MainLayout`.
  * Imports dinâmicos: `authenticated-route-registry.ts` (e `route-prefetch.ts`).
  */
-const AuthenticatedRoutes: React.FC = () => (
+const AuthenticatedRoutes: React.FC<Props> = ({ defaultRoute = '/dashboard', userRole }) => (
   <Routes>
-    <Route path="/" element={<Navigate to="/dashboard" replace />} />
-    <Route path="/dashboard" element={<DashboardPage />} />
+    <Route
+      path="/"
+      element={
+        hasRole(userRole, 'MORADOR') ? (
+          <Navigate to="/morador" replace />
+        ) : (
+          <Navigate to={defaultRoute} replace />
+        )
+      }
+    />
+    <Route
+      path="/morador"
+      element={hasRole(userRole, 'MORADOR') ? <MoradorHomePage /> : <Navigate to={defaultRoute} replace />}
+    />
+    <Route
+      path="/dashboard"
+      element={
+        <RoleGuard path="/dashboard" userRole={userRole} defaultRoute={defaultRoute}>
+          <DashboardPage />
+        </RoleGuard>
+      }
+    />
     <Route path="/mercado" element={<Navigate to="/produtos" replace />} />
-    <Route path="/compras/:expenseId" element={<ExpenseOperationalDetailPage />} />
-    <Route path="/compras" element={<ComprasPage />} />
-    <Route path="/fornecedores" element={<FornecedoresPage />} />
-    <Route path="/produtos" element={<ProdutosPage />} />
-    <Route path="/alertas" element={<AlertasPage />} />
-    <Route path="/notificacoes" element={<NotificationsLayout />}>
+    <Route
+      path="/compras/:expenseId"
+      element={
+        <RoleGuard path="/compras" userRole={userRole} defaultRoute={defaultRoute}>
+          <ExpenseOperationalDetailPage />
+        </RoleGuard>
+      }
+    />
+    <Route
+      path="/compras"
+      element={
+        <RoleGuard path="/compras" userRole={userRole} defaultRoute={defaultRoute}>
+          <ComprasPage />
+        </RoleGuard>
+      }
+    />
+    <Route
+      path="/fornecedores"
+      element={
+        <RoleGuard path="/fornecedores" userRole={userRole} defaultRoute={defaultRoute}>
+          <FornecedoresPage />
+        </RoleGuard>
+      }
+    />
+    <Route
+      path="/produtos"
+      element={
+        <RoleGuard path="/produtos" userRole={userRole} defaultRoute={defaultRoute}>
+          <ProdutosPage />
+        </RoleGuard>
+      }
+    />
+    <Route
+      path="/alertas"
+      element={
+        <RoleGuard path="/alertas" userRole={userRole} defaultRoute={defaultRoute}>
+          <AlertasPage />
+        </RoleGuard>
+      }
+    />
+    <Route
+      path="/notificacoes"
+      element={
+        <RoleGuard path="/notificacoes" userRole={userRole} defaultRoute={defaultRoute}>
+          <NotificationsLayout />
+        </RoleGuard>
+      }
+    >
       <Route index element={<NotificationsCentralPage />} />
       <Route path="historico" element={<Navigate to="/notificacoes?visao=historico" replace />} />
       <Route path="falhas" element={<Navigate to="/notificacoes?visao=historico&estado=Failed" replace />} />
@@ -42,7 +129,14 @@ const AuthenticatedRoutes: React.FC = () => (
       <Route path="templates" element={<Navigate to="/notificacoes?visao=canais" replace />} />
       <Route path="preferencias" element={<Navigate to="/notificacoes?visao=preferencias" replace />} />
     </Route>
-    <Route path="/conformidades" element={<ComplianceLayout />}>
+    <Route
+      path="/conformidades"
+      element={
+        <RoleGuard path="/conformidades" userRole={userRole} defaultRoute={defaultRoute}>
+          <ComplianceLayout />
+        </RoleGuard>
+      }
+    >
       <Route index element={<ComplianceObrigacoesHubPage />} />
       <Route path="condominio" element={<Navigate to="/conformidades" replace />} />
       <Route path="pendencias" element={<Navigate to="/conformidades?visao=compras" replace />} />
@@ -52,9 +146,30 @@ const AuthenticatedRoutes: React.FC = () => (
       <Route path="regras" element={<Navigate to="/conformidades" replace />} />
       <Route path="despesa/:expenseId" element={<ExpenseCompliancePage />} />
     </Route>
-    <Route path="/auditoria" element={<AuditoriaPage />} />
-    <Route path="/insights" element={<InsightsPage />} />
-    <Route path="/relatorios" element={<RelatoriosPage />} />
+    <Route
+      path="/auditoria"
+      element={
+        <RoleGuard path="/auditoria" userRole={userRole} defaultRoute={defaultRoute}>
+          <AuditoriaPage />
+        </RoleGuard>
+      }
+    />
+    <Route
+      path="/insights"
+      element={
+        <RoleGuard path="/insights" userRole={userRole} defaultRoute={defaultRoute}>
+          <InsightsPage />
+        </RoleGuard>
+      }
+    />
+    <Route
+      path="/relatorios"
+      element={
+        <RoleGuard path="/relatorios" userRole={userRole} defaultRoute={defaultRoute}>
+          <RelatoriosPage />
+        </RoleGuard>
+      }
+    />
     <Route path="/configuracoes" element={<ConfiguracoesPage />} />
     <Route path="*" element={<NotFoundPage />} />
   </Routes>

@@ -2,7 +2,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 
 /**
- * Shell mínimo: toda a gestão de obrigações regulatórias vive num único hub (`ComplianceObrigacoesHubPage`).
+ * Shell mínimo: obrigações regulatórias (conformidade) num único hub (`ComplianceObrigacoesHubPage`).
  * Detalhe por despesa permanece em `/conformidades/despesa/:expenseId`.
  */
 const ComplianceLayout: React.FC = () => (

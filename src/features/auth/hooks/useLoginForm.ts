@@ -17,10 +17,8 @@ export interface FormErrors {
 export const useLoginForm = (): {
   formData: LoginFormData;
   errors: FormErrors;
-  showAdvanced: boolean;
   setFormData: Dispatch<SetStateAction<LoginFormData>>;
   setErrors: Dispatch<SetStateAction<FormErrors>>;
-  setShowAdvanced: Dispatch<SetStateAction<boolean>>;
   validate: () => boolean;
   resetForm: () => void;
   isFormValid: boolean;
@@ -34,7 +32,6 @@ export const useLoginForm = (): {
     password: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const isEmailValid = useMemo(() => {
     const email = formData.email;
@@ -61,13 +58,8 @@ export const useLoginForm = (): {
   const validate = useCallback((): boolean => {
     const newErrors: FormErrors = {};
 
-    if (!formData.tenantId) {
-      newErrors.tenantId = 'Selecione um condomínio ou informe um Tenant ID válido.';
-    } else {
-      const tid = formData.tenantId.trim();
-      if (!TENANT_GUID_REGEX.test(tid)) {
-        newErrors.tenantId = 'Tenant ID inválido. Use o modal de busca.';
-      }
+    if (!hasCondominio) {
+      newErrors.tenantId = 'Selecione um condomínio em Buscar.';
     }
 
     if (!formData.email) {
@@ -84,7 +76,7 @@ export const useLoginForm = (): {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData.tenantId, formData.email, formData.password, isEmailValid, isPasswordValid]);
+  }, [formData.email, formData.password, hasCondominio, isEmailValid, isPasswordValid]);
 
   const resetForm = useCallback(() => {
     setFormData({
@@ -93,16 +85,13 @@ export const useLoginForm = (): {
       password: '',
     });
     setErrors({});
-    setShowAdvanced(false);
   }, []);
 
   return {
     formData,
     errors,
-    showAdvanced,
     setFormData,
     setErrors,
-    setShowAdvanced,
     validate,
     resetForm,
     isFormValid,

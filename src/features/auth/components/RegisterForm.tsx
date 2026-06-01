@@ -1,29 +1,53 @@
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { CondominioLookupModal } from '../../../components/auth/CondominioLookupModal';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import type { CondoRow } from '../../../lib/condominio-lookup';
 import { formatApiError } from '../../../lib/api-error-message';
 import { EcondomizaApi } from '../../../services';
-import { useAuthSession } from '../../../context/AuthSessionContext';
+import { useAuth } from '../../../context/AuthContext';
 import { useRegisterForm } from '../hooks/useRegisterForm';
 import { useEstablishGatewaySession } from '../hooks/useEstablishGatewaySession';
 import { isTenantRole, REGISTER_ROLE_OPTIONS, type TenantRole } from '../../../domain/auth-roles';
 import { AUTH_COPY, isValidTenantGuid } from '../constants';
-import { Button, Input, PasswordInput, LoadingSpinner, FormError } from '../../../components/ui';
+import { PRODUCT_COPY } from '../../../lib/product-copy';
+import { CondominioPickerField } from './CondominioPickerField';
+import {
+  Button,
+  Input,
+  PasswordInput,
+  LoadingSpinner,
+  FormError,
+  Select,
+  SkeletonLoading,
+} from '../../../components/ui';
 
 export interface RegisterFormProps {
   defaultTenantId?: string;
   onRegisterError?: (error: string) => void;
 }
 
+function RegisterSessionSkeleton() {
+  return (
+    <main className="login-shell" aria-busy="true">
+      <div className="login-shell__form-area w-full">
+        <div className="login-page space-y-4">
+          <SkeletonLoading size="lg" className="w-32 rounded-lg" />
+          <SkeletonLoading size="md" className="w-full rounded-lg" />
+        </div>
+      </div>
+    </main>
+  );
+}
+
 export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onRegisterError }) => {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading: sessionLoading } = useAuthSession();
+  const { isAuthenticated, isLoading: sessionLoading } = useAuth();
   const { establishFromEnvelope } = useEstablishGatewaySession();
-  const [modalOpen, setModalOpen] = useState(false);
   const [condoLabel, setCondoLabel] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const form = useRegisterForm();
+  const { formData, errors, setErrors, validate, showAdvanced, setShowAdvanced, setFormData } =
+    useRegisterForm();
 
   useEffect(() => {
     if (!sessionLoading && isAuthenticated) {
@@ -31,23 +55,17 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onR
     }
   }, [sessionLoading, isAuthenticated, navigate]);
 
-  const {
-    formData,
-    errors,
-    setErrors,
-    validate,
-    showAdvanced,
-    hasCondominio,
-    isNameValid,
-    setFormData,
-  } = form;
+  useEffect(() => {
+    if (defaultTenantId) {
+      const tid = defaultTenantId.trim();
+      if (isValidTenantGuid(tid)) {
+        setCondoLabel(null);
+        setFormData((prev) => ({ ...prev, tenantId: tid }));
+      }
+    }
+  }, [defaultTenantId, setFormData]);
 
-  const summaryDisplay = useMemo(() => {
-    if (condoLabel && condoLabel.trim()) return condoLabel.trim();
-    if (!formData.tenantId) return null;
-    if (!isValidTenantGuid(formData.tenantId)) return null;
-    return formData.tenantId.trim();
-  }, [condoLabel, formData.tenantId]);
+  const summaryDisplay = useMemo(() => condoLabel?.trim() || null, [condoLabel]);
 
   const onCondoPicked = useCallback(
     (row: CondoRow) => {
@@ -62,6 +80,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onR
     async (e: React.FormEvent) => {
       e.preventDefault();
       setErrors({});
+      if (!validate()) return;
 
       const tid = formData.tenantId.trim();
       if (!isValidTenantGuid(tid)) {
@@ -69,15 +88,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onR
         return;
       }
 
-      if (!formData.email || !formData.password) {
-        setErrors((prev) => ({
-          ...prev,
-          email: AUTH_COPY.emailPasswordRequired.email,
-          password: AUTH_COPY.emailPasswordRequired.password,
-        }));
-        return;
-      }
-
+      setSubmitting(true);
       try {
         const registerRes = await EcondomizaApi.register({
           tenantId: tid,
@@ -101,238 +112,151 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ defaultTenantId, onR
         setErrors((prev) => ({ ...prev, general: sessionResult.message }));
       } catch (err: unknown) {
         const errorMessage = formatApiError(err);
-        if (onRegisterError) onRegisterError(errorMessage);
+        onRegisterError?.(errorMessage);
         setErrors((prev) => ({ ...prev, general: errorMessage }));
+      } finally {
+        setSubmitting(false);
       }
     },
-    [
-      formData.email,
-      formData.password,
-      formData.tenantId,
-      formData.name,
-      formData.role,
-      navigate,
-      onRegisterError,
-      setErrors,
-      establishFromEnvelope,
-    ]
+    [validate, formData, establishFromEnvelope, navigate, onRegisterError, setErrors]
   );
 
-  const [loading, setLoading] = React.useState(false);
-
-  const onSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      setLoading(true);
-      const isValid = validate();
-      if (!isValid) {
-        setLoading(false);
-        return;
-      }
-
-      await handleSubmit(e);
-      setLoading(false);
-    },
-    [validate, handleSubmit]
-  );
-
-  useEffect(() => {
-    if (defaultTenantId) {
-      const tid = defaultTenantId.trim();
-      if (isValidTenantGuid(tid)) {
-        setCondoLabel(null);
-        setFormData((prev) => ({ ...prev, tenantId: tid }));
-      }
-    }
-  }, [defaultTenantId, setFormData]);
-
-  useEffect(() => {
-    if (!formData.tenantId.trim()) {
-      setCondoLabel(null);
-    }
-  }, [formData.tenantId]);
-
-  const handleRoleChange = useCallback(
-    (role: TenantRole) => {
-      setFormData((prev) => ({ ...prev, role }));
-    },
-    [setFormData]
-  );
+  if (sessionLoading) return <RegisterSessionSkeleton />;
 
   return (
     <main className="login-shell" aria-labelledby="register-heading">
-      <div className="login-page">
-        <div className="login-card">
-          <h2 id="register-heading">Criar Conta</h2>
-          <p id="register-intro" className="form-help">
-            Cadastre-se para acessar o sistema Econdomiza e começar a gerenciar seu condomínio.
-          </p>
+      <aside className="login-shell__brand" aria-hidden="true">
+        <p className="login-shell__brand-kicker">{PRODUCT_COPY.brandKicker}</p>
+        <h1 className="login-shell__brand-title">Criar conta</h1>
+        <p className="login-shell__brand-desc">{PRODUCT_COPY.registerIntro}</p>
+        <div className="mt-8 flex items-center gap-2 text-sm text-white/80">
+          <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden />
+          <span>Perfil validado pelo administrador do condomínio</span>
+        </div>
+      </aside>
 
-          <form onSubmit={onSubmit} aria-describedby="register-intro" noValidate>
-            <div className="form-group">
-              <label className="field-label" htmlFor="condo-summary-display">
-                Condomínio
-              </label>
-              <div className="condo-chosen-row">
-                <span
-                  id="condo-summary-display"
-                  className={`condo-summary${!summaryDisplay ? ' condo-summary--empty' : ''}`}
-                  aria-live="polite"
-                >
-                  {summaryDisplay ?? 'Nenhum condomínio selecionado'}
-                </span>
-                <button
-                  type="button"
-                  className="btn-lookup"
-                  onClick={() => setModalOpen(true)}
-                  aria-haspopup="dialog"
-                  aria-expanded={modalOpen}
-                  title="Buscar condomínios"
-                >
-                  Buscar
-                </button>
-              </div>
-              {errors.tenantId && <p className="text-sm text-red-600 mt-1">{errors.tenantId}</p>}
-            </div>
+      <div className="login-shell__form-area">
+        <div className="login-page">
+          <div className="login-card">
+            <h2 id="register-heading">Registar</h2>
+            <p id="register-intro" className="form-help login-intro">
+              {PRODUCT_COPY.registerCondominioNote}
+            </p>
 
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => form.setShowAdvanced((s) => !s)}
-              aria-expanded={showAdvanced}
-              aria-controls="register-tenant-advanced"
-              id="register-tenant-advanced-toggle"
+            <form
+              onSubmit={(e) => void handleSubmit(e)}
+              aria-describedby="register-intro"
+              noValidate
+              className="space-y-4"
             >
-              {showAdvanced ? 'Ocultar' : 'Tenant ID (avançado)'}
-            </Button>
+              <CondominioPickerField
+                summaryLabel={summaryDisplay}
+                error={errors.tenantId}
+                helpText={PRODUCT_COPY.registerCondominioNote}
+                selectedId={formData.tenantId.trim() || undefined}
+                onSelect={onCondoPicked}
+              />
 
-            {showAdvanced && (
-              <div
-                className="form-group"
-                id="register-tenant-advanced"
-                role="region"
-                aria-labelledby="register-tenant-advanced-toggle"
-                style={{ marginBottom: 'var(--spacing-md)' }}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAdvanced((s) => !s)}
+                aria-expanded={showAdvanced}
               >
+                {showAdvanced ? 'Ocultar tenant ID' : 'Tenant ID (avançado)'}
+              </Button>
+
+              {showAdvanced && (
                 <Input
                   label="Tenant ID (GUID)"
                   id="tenantId"
-                  placeholder="00000000-0000-0000-0000-000000000000"
                   value={formData.tenantId}
                   onChange={(e) => {
                     setCondoLabel(null);
-                    form.setFormData((prev) => ({ ...prev, tenantId: e.target.value }));
+                    setFormData((prev) => ({ ...prev, tenantId: e.target.value }));
                   }}
                   error={errors.tenantId}
                   autoComplete="off"
-                  aria-describedby="tenantId-help"
+                  helperText="Uso operacional (suporte)."
                 />
-                <p id="tenantId-help" className="text-sm text-gray-500 mt-1">
-                  Uso operacional (suporte).
-                </p>
-              </div>
-            )}
+              )}
 
-            <Input
-              label="Nome completo"
-              id="name"
-              type="text"
-              value={formData.name}
-              onChange={(e) => form.setFormData((prev) => ({ ...prev, name: e.target.value }))}
-              error={errors.name}
-              autoComplete="name"
-              required
-              helperText="Seu nome completo"
-              disabled={!hasCondominio}
-            />
+              <Input
+                label="Nome completo"
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                error={errors.name}
+                autoComplete="name"
+                required
+              />
 
-            <Input
-              label="E-mail"
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => form.setFormData((prev) => ({ ...prev, email: e.target.value }))}
-              error={errors.email}
-              autoComplete="username"
-              required
-              helperText="Digite seu e-mail corporativo"
-              disabled={!hasCondominio}
-            />
+              <Input
+                label="E-mail"
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+                error={errors.email}
+                autoComplete="username"
+                required
+                helperText={PRODUCT_COPY.registerEmailHelp}
+              />
 
-            <PasswordInput
-              label="Senha"
-              id="password"
-              value={formData.password}
-              onChange={(e) => form.setFormData((prev) => ({ ...prev, password: e.target.value }))}
-              error={errors.password}
-              autoComplete="new-password"
-              required
-              helperText="Mínimo 8 caracteres"
-              disabled={!hasCondominio}
-            />
+              <PasswordInput
+                label="Senha"
+                id="password"
+                value={formData.password}
+                onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
+                error={errors.password}
+                autoComplete="new-password"
+                required
+                helperText="Mínimo 8 caracteres"
+              />
 
-            <div className="form-group">
-              <label className="field-label" htmlFor="role-select">
-                Perfil
-              </label>
-              <select
+              <Select
+                label="Perfil"
                 id="role-select"
                 value={formData.role}
+                options={[]}
                 onChange={(e) => {
                   const v = e.target.value;
-                  if (isTenantRole(v)) handleRoleChange(v);
+                  if (isTenantRole(v)) setFormData((prev) => ({ ...prev, role: v as TenantRole }));
                 }}
-                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
-                disabled={!hasCondominio || isNameValid === false || !formData.email}
-                aria-describedby="role-helper"
               >
                 {REGISTER_ROLE_OPTIONS.map((role) => (
                   <option key={role.value} value={role.value}>
                     {role.label}
                   </option>
                 ))}
-              </select>
-              <p id="role-helper" className="text-sm text-gray-500 mt-1">
-                {REGISTER_ROLE_OPTIONS.find((r) => r.value === formData.role)?.helper ??
-                  'O valor enviado deve coincidir com o perfil atribuído no condomínio.'}
+              </Select>
+              <p className="text-xs text-text-muted">
+                {REGISTER_ROLE_OPTIONS.find((r) => r.value === formData.role)?.helper}
               </p>
-            </div>
 
-            {errors.general && (
-              <div className="mt-3">
-                <FormError className="auth-screen-error">{errors.general}</FormError>
+              {errors.general && <FormError className="auth-screen-error">{errors.general}</FormError>}
+
+              <div className="form-actions pt-1">
+                {submitting ? (
+                  <LoadingSpinner fullWidth message="A criar conta…" />
+                ) : (
+                  <Button type="submit" variant="primary" fullWidth size="lg">
+                    Criar conta
+                  </Button>
+                )}
               </div>
-            )}
 
-            <div className="form-actions">
-              {loading ? (
-                <LoadingSpinner fullWidth message="Criando conta…" />
-              ) : (
-                <Button type="submit" variant="primary" fullWidth>
-                  Criar conta
-                </Button>
-              )}
-            </div>
-
-            <p className="form-help" style={{ marginTop: 'var(--spacing-lg)' }}>
-              Já tem uma conta?{' '}
-              <button type="button" className="link-accent" onClick={() => navigate('/login')}>
-                Faça login
-              </button>
-            </p>
-          </form>
+              <p className="form-help auth-screen-switch">
+                Já tem conta?{' '}
+                <Link to="/login" className="link-accent">
+                  Faça login
+                </Link>
+              </p>
+            </form>
+          </div>
         </div>
       </div>
-
-      {modalOpen && (
-        <CondominioLookupModal
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          onConfirm={onCondoPicked}
-          currentTenantId={formData.tenantId.trim() || undefined}
-        />
-      )}
     </main>
   );
 };

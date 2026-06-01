@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import type { AuthTokens, UserProfile } from '../../../context/AuthSessionContext';
-import { useAuthSession } from '../../../context/AuthSessionContext';
+import type { AuthTokens, UserProfile } from '../../../context/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
 import { formatApiError } from '../../../lib/api-error-message';
 import {
   authTokensFromGatewayStorage,
@@ -44,17 +44,10 @@ export async function establishSessionFromAuthEnvelope(
 }
 
 export function useEstablishGatewaySession() {
-  const { actions } = useAuthSession();
+  const { actions } = useAuth();
 
   const loginWithCredentials = useCallback(
     async (tenantId: string, email: string, password: string): Promise<EstablishSessionResult> => {
-      // TEMP_AUTH_DISABLED: Mockar sucesso de login se modo desativado
-      const TEMP_AUTH_DISABLED = localStorage.getItem('TEMP_AUTH_DISABLED_MODE') === 'true';
-      if (TEMP_AUTH_DISABLED) {
-        console.warn('[TEMP_AUTH_DISABLED] loginWithCredentials bypassed - retornando sucesso fake');
-        return { ok: true };
-      }
-
       try {
         const loginRes = await EcondomizaApi.login(tenantId, email.trim(), password);
         return establishSessionFromAuthEnvelope(actions.login, loginRes.data);

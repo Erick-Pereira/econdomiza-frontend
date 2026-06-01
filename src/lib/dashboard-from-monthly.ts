@@ -23,9 +23,7 @@ function num(v: unknown): number {
 
 export function buildDashboardKpisFromMonthlyPayload(monthlyPayload: unknown): DashboardKpiPayload {
   const root =
-    monthlyPayload && typeof monthlyPayload === 'object'
-      ? (monthlyPayload as Record<string, unknown>)
-      : {};
+    monthlyPayload && typeof monthlyPayload === 'object' ? (monthlyPayload as Record<string, unknown>) : {};
   const rows = Array.isArray(root.rows) ? (root.rows as Record<string, unknown>[]) : [];
   const year = typeof root.year === 'number' ? root.year : new Date().getFullYear();
 

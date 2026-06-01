@@ -1,26 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { EcondomizaApi } from '../services';
 import { formatApiError } from '../lib/api-error-message';
 import { formatDatePtBr, formatDateTimePtBr } from '../lib/format-date-pt-br';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageFatalErrorState, PageLoadingState } from '../components/layout/PageLoadStates';
+import { Card, Button, Badge } from '../components/ui';
+import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
+import { formatBrlInput, parseBrlInput } from '../lib/currency-br-input';
 import {
-  approvalStatusTone,
-  asRecord,
-  confidenceTone,
-  formatConfidencePercent,
   humanizeApprovalPt,
   humanizeProcessingPt,
   humanizeSettlementPt,
-  pickBool,
-  pickNum,
-  pickStr,
-  processingStatusTone,
-  settlementStatusTone,
+  readAllowedFlag,
+  readEntityId,
 } from '../lib/expense-operational-ui';
 
+// Tipos e utilitários
 type PipelineStep = { code: string; label: string; state: string };
 type TimelineEntry = {
   source: string;
@@ -32,7 +29,21 @@ type TimelineEntry = {
   actorName?: string | null;
 };
 
-const PAYMENT_METHODS = ['Pix', 'Boleto', 'BankTransfer', 'Cash', 'Card', 'Other'] as const;
+import { ArrowLeft, CheckCircle2, AlertCircle, Clock, FileText, TrendingUp, CreditCard } from 'lucide-react';
+
+const PAYMENT_METHOD_OPTIONS = [
+  { value: 'Pix', label: 'Pix' },
+  { value: 'Boleto', label: 'Boleto' },
+  { value: 'BankTransfer', label: 'Transferência bancária' },
+  { value: 'Cash', label: 'Dinheiro' },
+  { value: 'Card', label: 'Cartão' },
+  { value: 'Other', label: 'Outro' },
+] as const;
+
+const TIMELINE_SOURCE_PT: Record<string, string> = {
+  system: 'Sistema',
+  audit: 'Auditoria',
+};
 
 const NEXT_ACTION_LABELS: Record<string, string> = {
   approve: 'Aprovar despesa',
@@ -43,26 +54,22 @@ const NEXT_ACTION_LABELS: Record<string, string> = {
   refund_payment: 'Estornar pagamento',
 };
 
-function badgeClass(tone: string): string {
-  return `op-badge op-badge--${tone}`;
-}
-
 function parseTimeline(raw: unknown): TimelineEntry[] {
   if (!Array.isArray(raw)) return [];
   const out: TimelineEntry[] = [];
   for (const x of raw) {
-    const o = asRecord(x);
+    const o = typeof x === 'object' && x !== null ? x : {};
     if (!o) continue;
-    const at = pickStr(o, 'at', 'At');
+    const at = String(o.at || '');
     if (!at) continue;
     out.push({
-      source: pickStr(o, 'source', 'Source') || 'system',
+      source: String(o.source || 'system'),
       at,
-      title: pickStr(o, 'title', 'Title') || 'Evento',
-      detail: pickStr(o, 'detail', 'Detail') || undefined,
-      action: pickStr(o, 'action', 'Action') || undefined,
-      actorId: pickStr(o, 'actorId', 'ActorId') || undefined,
-      actorName: pickStr(o, 'actorName', 'ActorName') || undefined,
+      title: String(o.title || 'Evento'),
+      detail: o.detail ? String(o.detail) : undefined,
+      action: o.action ? String(o.action) : undefined,
+      actorId: o.actorId ? String(o.actorId) : undefined,
+      actorName: o.actorName ? String(o.actorName) : undefined,
     });
   }
   return out.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
@@ -72,12 +79,12 @@ function parseSteps(raw: unknown): PipelineStep[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .map((x) => {
-      const o = asRecord(x);
+      const o = typeof x === 'object' && x !== null ? x : {};
       if (!o) return null;
       return {
-        code: pickStr(o, 'code', 'Code'),
-        label: pickStr(o, 'label', 'Label') || pickStr(o, 'code', 'Code'),
-        state: pickStr(o, 'state', 'State') || 'pending',
+        code: String(o.code || ''),
+        label: String(o.label || o.code),
+        state: String(o.state || 'pending'),
       };
     })
     .filter((x): x is PipelineStep => x != null && !!x.code);
@@ -97,17 +104,51 @@ function timelineTabFilter(tab: TimelineTab, e: TimelineEntry): boolean {
   return true;
 }
 
+const formatCurrency = (value: number | null) => {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+};
+
+const formatStatusBadge = (label: string, tone: 'success' | 'warning' | 'error' | 'neutral') => {
+  const variant =
+    tone === 'success' ? 'ok' : tone === 'warning' ? 'warning' : tone === 'error' ? 'error' : 'neutral';
+  return <Badge variant={variant}>{label}</Badge>;
+};
+
+const processingTone = (code: string) =>
+  code === 'Failed'
+    ? 'error'
+    : code === 'PartiallyCompleted'
+      ? 'warning'
+      : code === 'Completed'
+        ? 'success'
+        : 'neutral';
+
+const approvalTone = (code: string) =>
+  code === 'Rejected' || code === 'Cancelled'
+    ? 'error'
+    : code === 'PendingApproval'
+      ? 'warning'
+      : code === 'Approved'
+        ? 'success'
+        : 'neutral';
+
+const settlementTone = (code: string) =>
+  code === 'Unpaid' || code === 'PartiallyPaid' ? 'warning' : code === 'Paid' ? 'success' : 'neutral';
+
 const ExpenseOperationalDetailPage: React.FC = () => {
   const { expenseId = '' } = useParams<{ expenseId: string }>();
   const navigate = useNavigate();
-  const { show } = useToast();
+  const { add } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [raw, setRaw] = useState<Record<string, unknown> | null>(null);
-  const [timelineTab, setTimelineTab] = useState<TimelineTab>('all');
+  const [timelineTab, _setTimelineTab] = useState<TimelineTab>('all');
 
+  // Estados dos modais
   const [reasonOpen, setReasonOpen] = useState<'reject' | 'cancel' | null>(null);
+  const [approveOpen, setApproveOpen] = useState(false);
   const [reasonText, setReasonText] = useState('');
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [payAmount, setPayAmount] = useState('');
@@ -116,6 +157,8 @@ const ExpenseOperationalDetailPage: React.FC = () => {
   const [payRef, setPayRef] = useState('');
   const [refundPid, setRefundPid] = useState<string | null>(null);
   const [refundReason, setRefundReason] = useState('');
+  const [reasonError, setReasonError] = useState<string | null>(null);
+  const [refundError, setRefundError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -139,12 +182,21 @@ const ExpenseOperationalDetailPage: React.FC = () => {
     void load();
   }, [load]);
 
-  const gov = useMemo(() => asRecord(raw?.governance ?? raw?.Governance), [raw]);
-  const allowed = useMemo(() => asRecord(gov?.allowedActions ?? gov?.AllowedActions), [gov]);
-  const nextActions = useMemo(() => {
-    const n = gov?.nextActions ?? gov?.NextActions;
-    return Array.isArray(n) ? (n as string[]) : [];
-  }, [gov]);
+  // Parseamento de dados - corrigido para evitar erro de sintaxe com ?? e &&
+  const governanceRaw = raw?.governance ?? raw?.Governance;
+  const gov =
+    typeof governanceRaw === 'object' && governanceRaw !== null
+      ? (governanceRaw as Record<string, unknown>)
+      : {};
+
+  const allowedActionsRaw = gov?.allowedActions ?? gov?.AllowedActions;
+  const allowed =
+    typeof allowedActionsRaw === 'object' && allowedActionsRaw !== null
+      ? (allowedActionsRaw as Record<string, unknown>)
+      : {};
+
+  const nextActionsRaw = gov?.nextActions ?? gov?.NextActions;
+  const nextActions = Array.isArray(nextActionsRaw) ? nextActionsRaw : [];
 
   const timeline = useMemo(() => parseTimeline(raw?.operationalTimeline ?? raw?.OperationalTimeline), [raw]);
   const filteredTimeline = useMemo(
@@ -152,121 +204,223 @@ const ExpenseOperationalDetailPage: React.FC = () => {
     [timeline, timelineTab]
   );
 
-  const processingSteps = useMemo(
-    () => parseSteps(gov?.processingSteps ?? gov?.ProcessingSteps),
-    [gov]
-  );
-  const approvalSteps = useMemo(() => parseSteps(gov?.approvalSteps ?? gov?.ApprovalSteps), [gov]);
-  const settlementSteps = useMemo(() => parseSteps(gov?.settlementSteps ?? gov?.SettlementSteps), [gov]);
+  const processingSteps = useMemo(() => parseSteps(gov?.processingSteps ?? gov?.ProcessingSteps), [gov]);
 
   const currentProcessing = useMemo(
-    () => processingSteps.find((s) => s.state === 'current') ?? processingSteps.find((s) => s.code === pickStr(raw ?? {}, 'processingStatus', 'ProcessingStatus')),
+    () =>
+      processingSteps.find((s) => s.state === 'current') ??
+      processingSteps.find((s) => s.code === String(raw?.processingStatus ?? raw?.ProcessingStatus)),
     [processingSteps, raw]
   );
 
   const items = useMemo(() => {
     const arr = raw?.items ?? raw?.Items;
-    if (!Array.isArray(arr)) return [] as Record<string, unknown>[];
+    if (!Array.isArray(arr)) return [];
     return arr.filter((x) => x && typeof x === 'object') as Record<string, unknown>[];
   }, [raw]);
 
   const payments = useMemo(() => {
     const arr = raw?.payments ?? raw?.Payments;
-    if (!Array.isArray(arr)) return [] as Record<string, unknown>[];
+    if (!Array.isArray(arr)) return [];
     return arr.filter((x) => x && typeof x === 'object') as Record<string, unknown>[];
   }, [raw]);
 
-  const processingCode = pickStr(raw ?? {}, 'processingStatus', 'ProcessingStatus');
-  const approvalCode = pickStr(raw ?? {}, 'approvalStatus', 'ApprovalStatus');
-  const settlementCode = pickStr(raw ?? {}, 'settlementStatus', 'SettlementStatus');
-  const legacyStatus = pickStr(raw ?? {}, 'status', 'Status');
-  const conf = pickNum(raw ?? {}, 'confidenceScore', 'ConfidenceScore');
-  const lowConf = pickBool(raw ?? {}, 'lowConfidence', 'LowConfidence');
-  const failReason = pickStr(raw ?? {}, 'processingFailureReason', 'ProcessingFailureReason');
-  const retryCount = pickNum(raw ?? {}, 'processingRetryCount', 'ProcessingRetryCount') ?? 0;
-  const failedAt = pickStr(raw ?? {}, 'processingFailedAt', 'ProcessingFailedAt');
-  const lastPipe = pickStr(raw ?? {}, 'lastPipelineTransitionAt', 'LastPipelineTransitionAt');
+  // Status e valores - corrigido para evitar erro de sintaxe com ?? e ||
+  const processingCode = String((raw?.processingStatus ?? raw?.ProcessingStatus) || '');
+  const approvalCode = String((raw?.approvalStatus ?? raw?.ApprovalStatus) || '');
+  const settlementCode = String((raw?.settlementStatus ?? raw?.SettlementStatus) || '');
+  const legacyStatus = String((raw?.status ?? raw?.Status) || '');
+  const conf = Number(raw?.confidenceScore ?? raw?.ConfidenceScore);
+  const lowConf = Boolean(raw?.lowConfidence ?? raw?.LowConfidence);
+  const failReason = String((raw?.processingFailureReason ?? raw?.ProcessingFailureReason) || '');
+  const retryCount = Number(raw?.processingRetryCount ?? raw?.ProcessingRetryCount ?? 0);
+  const failedAt = String((raw?.processingFailedAt ?? raw?.ProcessingFailedAt) || '');
+  const lastPipe = String((raw?.lastPipelineTransitionAt ?? raw?.LastPipelineTransitionAt) || '');
 
-  const money = (n: number | null) =>
-    n == null || !Number.isFinite(n)
-      ? '—'
-      : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
+  const desc = String((raw?.description ?? raw?.Description) || '');
+  const supplier = String((raw?.supplierName ?? raw?.SupplierName) || '');
+  const supplierId = String((raw?.supplierId ?? raw?.SupplierId) || '');
+  const issue = String((raw?.issueDate ?? raw?.IssueDate) || '');
+  const total = Number(raw?.totalAmount ?? raw?.TotalAmount);
+  const paid = Number(raw?.totalPaid ?? raw?.TotalPaid);
+  const outstanding = Number(raw?.outstandingBalance ?? raw?.OutstandingBalance);
+  const rawDoc = String((raw?.rawDocumentId ?? raw?.RawDocumentId) || '');
 
+  // Permissões
+  const canApprove = readAllowedFlag(allowed, 'approve', 'Approve');
+  const canReject = readAllowedFlag(allowed, 'reject', 'Reject');
+  const canCancel = readAllowedFlag(allowed, 'cancel', 'Cancel');
+  const canRetry = readAllowedFlag(allowed, 'retryProcessing', 'RetryProcessing');
+  const canPay = readAllowedFlag(allowed, 'registerPayment', 'RegisterPayment');
+  const canRefund = readAllowedFlag(allowed, 'refundPayment', 'RefundPayment');
+
+  const MIN_REASON_LEN = 3;
+
+  const validateReason = (text: string): string | null => {
+    const r = text.trim();
+    if (r.length < MIN_REASON_LEN) {
+      return `Informe uma justificativa (mínimo ${MIN_REASON_LEN} caracteres).`;
+    }
+    return null;
+  };
+
+  // Ações
   const run = async (fn: () => Promise<unknown>, okMsg: string) => {
     try {
       setBusy(true);
       await fn();
-      show(okMsg, 'success');
+      add(okMsg, 'success');
       await load();
     } catch (e) {
-      show(formatApiError(e), 'error');
+      add(formatApiError(e), 'error');
     } finally {
       setBusy(false);
     }
   };
 
-  const onApprove = () =>
-    run(() => EcondomizaApi.approveExpense(expenseId), 'Despesa aprovada.');
+  const onApprove = async () => {
+    setApproveOpen(false);
+    await run(() => EcondomizaApi.approveExpense(expenseId), 'Despesa aprovada.');
+  };
 
-  const submitReason = async () => {
-    const r = reasonText.trim();
-    if (r.length < 3) {
-      show('Indique uma justificativa (mín. 3 caracteres).', 'warning');
+  const submitReject = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const err = validateReason(reasonText);
+    if (err) {
+      setReasonError(err);
+      add(err, 'info');
       return;
     }
-    if (reasonOpen === 'reject') {
+    const r = reasonText.trim();
+    try {
+      setBusy(true);
+      await EcondomizaApi.rejectExpense(expenseId, r);
       setReasonOpen(null);
       setReasonText('');
-      await run(() => EcondomizaApi.rejectExpense(expenseId, r), 'Despesa rejeitada.');
-    } else if (reasonOpen === 'cancel') {
+      setReasonError(null);
+      add('Despesa rejeitada.', 'success');
+      await load();
+    } catch (err) {
+      add(formatApiError(err), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitCancel = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const err = validateReason(reasonText);
+    if (err) {
+      setReasonError(err);
+      add(err, 'info');
+      return;
+    }
+    const r = reasonText.trim();
+    try {
+      setBusy(true);
+      await EcondomizaApi.cancelExpense(expenseId, r);
       setReasonOpen(null);
       setReasonText('');
-      await run(() => EcondomizaApi.cancelExpense(expenseId, r), 'Despesa cancelada.');
+      setReasonError(null);
+      add('Despesa cancelada.', 'success');
+      await load();
+    } catch (err) {
+      add(formatApiError(err), 'error');
+    } finally {
+      setBusy(false);
     }
   };
 
   const onRetry = () => run(() => EcondomizaApi.retryExpenseProcessing(expenseId), 'Reprocessamento pedido.');
 
   const submitPayment = async () => {
-    const amount = Number(String(payAmount).replace(',', '.'));
+    const amount = parseBrlInput(payAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      show('Valor de pagamento inválido.', 'warning');
+      add('Informe um valor de pagamento válido.', 'info');
       return;
     }
     if (!payDate) {
-      show('Indique a data do pagamento.', 'warning');
+      add('Indique a data do pagamento.', 'info');
       return;
     }
     const iso = new Date(payDate).toISOString();
-    setPaymentOpen(false);
-    setPayAmount('');
-    setPayRef('');
-    await run(
-      () =>
-        EcondomizaApi.registerExpensePayment(expenseId, {
-          amount,
-          paymentDate: iso,
-          method: payMethod,
-          referenceCode: payRef.trim() || null,
-        }),
-      'Pagamento registado.'
-    );
+    try {
+      setBusy(true);
+      await EcondomizaApi.registerExpensePayment(expenseId, {
+        amount,
+        paymentDate: iso,
+        method: payMethod,
+        referenceCode: payRef.trim() || null,
+      });
+      setPaymentOpen(false);
+      setPayAmount('');
+      setPayRef('');
+      add('Pagamento registado.', 'success');
+      await load();
+    } catch (e) {
+      add(formatApiError(e), 'error');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const submitRefund = async () => {
-    const r = refundReason.trim();
-    if (!refundPid || r.length < 3) {
-      show('Motivo do estorno obrigatório.', 'warning');
+  const openPaymentModal = () => {
+    setPayAmount('');
+    setPayRef('');
+    setPayMethod('Pix');
+    setPayDate(new Date().toISOString().slice(0, 16));
+    setPaymentOpen(true);
+  };
+
+  const submitRefund = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const err = validateReason(refundReason);
+    if (!refundPid) {
+      const msg = 'Pagamento inválido — recarregue a página e tente novamente.';
+      setRefundError(msg);
+      add(msg, 'error');
+      return;
+    }
+    if (err) {
+      setRefundError(err);
+      add(err, 'info');
       return;
     }
     const pid = refundPid;
-    setRefundPid(null);
+    const r = refundReason.trim();
+    try {
+      setBusy(true);
+      await EcondomizaApi.refundExpensePayment(expenseId, pid, r);
+      setRefundPid(null);
+      setRefundReason('');
+      setRefundError(null);
+      add('Estorno registado.', 'success');
+      await load();
+    } catch (err) {
+      add(formatApiError(err), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openRefundModal = (paymentId: string) => {
+    if (!paymentId) {
+      add('Não foi possível identificar o pagamento.', 'error');
+      return;
+    }
+    setRefundPid(paymentId);
     setRefundReason('');
-    await run(() => EcondomizaApi.refundExpensePayment(expenseId, pid, r), 'Estorno registado.');
+    setRefundError(null);
   };
 
   if (!expenseId) {
-    return <PageFatalErrorState id="expense-detail" message="Identificador em falta." onRetry={() => navigate('/compras')} />;
+    return (
+      <PageFatalErrorState
+        id="expense-detail"
+        message="Identificador em falta."
+        onRetry={() => navigate('/compras')}
+      />
+    );
   }
 
   if (loading && !raw) {
@@ -274,37 +428,38 @@ const ExpenseOperationalDetailPage: React.FC = () => {
   }
 
   if (error && !raw) {
-    return <PageFatalErrorState id="expense-detail" message={error} onRetry={() => void load()} />;
+    return (
+      <PageFatalErrorState
+        id="expense-detail"
+        message={error}
+        onRetry={() => void load()}
+        lead={
+          <p className="text-sm text-[var(--text-muted)] mb-2">
+            <button type="button" className="link-button" onClick={() => navigate('/compras')}>
+              ← Voltar à lista de compras
+            </button>
+          </p>
+        }
+      />
+    );
   }
 
   if (!raw) {
     return <PageFatalErrorState id="expense-detail" message="Resposta vazia." onRetry={() => void load()} />;
   }
 
-  const desc = pickStr(raw, 'description', 'Description');
-  const supplier = pickStr(raw, 'supplierName', 'SupplierName');
-  const supplierId = pickStr(raw, 'supplierId', 'SupplierId');
-  const issue = pickStr(raw, 'issueDate', 'IssueDate');
-  const total = pickNum(raw, 'totalAmount', 'TotalAmount');
-  const paid = pickNum(raw, 'totalPaid', 'TotalPaid');
-  const outstanding = pickNum(raw, 'outstandingBalance', 'OutstandingBalance');
-  const rawDoc = pickStr(raw, 'rawDocumentId', 'RawDocumentId');
-
-  const canApprove = !!allowed?.approve || !!allowed?.Approve;
-  const canReject = !!allowed?.reject || !!allowed?.Reject;
-  const canCancel = !!allowed?.cancel || !!allowed?.Cancel;
-  const canRetry = !!allowed?.retryProcessing || !!allowed?.RetryProcessing;
-  const canPay = !!allowed?.registerPayment || !!allowed?.RegisterPayment;
-  const canRefund = !!allowed?.refundPayment || !!allowed?.RefundPayment;
-
+  // Renderização
   return (
     <div className="page" id="expense-operational-detail">
       <PageHeader
-        title="Despesa — vista operacional"
-        description="Ciclo de vida, governança, linha temporal e ações alinhadas ao processamento e às políticas do condomínio."
+        title={desc || 'Detalhes da Despesa'}
+        description={`ID: ${String((raw?.id ?? raw?.Id) || '')} • Fornecedor: ${supplier || supplierId || '—'}`}
         quickLinks={[
           { to: '/compras', label: 'Lista de compras' },
-          { to: `/conformidades/despesa/${encodeURIComponent(pickStr(raw, 'id', 'Id'))}`, label: 'Pendências desta compra' },
+          {
+            to: `/conformidades/despesa/${encodeURIComponent(String(raw?.id ?? raw?.Id))}`,
+            label: 'Pendências desta compra',
+          },
           { to: '/conformidades', label: 'Obrigações do condomínio' },
           { to: '/auditoria', label: 'Auditoria e documentos' },
         ]}
@@ -312,439 +467,620 @@ const ExpenseOperationalDetailPage: React.FC = () => {
 
       {error && <div className="banner banner--error">{error}</div>}
 
-      <div className="op-detail-toolbar">
-        <button type="button" className="btn-small secondary" onClick={() => navigate('/compras')}>
-          ← Voltar à lista
-        </button>
-        <button type="button" className="btn-small secondary" disabled={busy} onClick={() => void load()}>
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 mb-4">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => navigate('/compras')}
+          icon={<ArrowLeft size={16} />}
+        >
+          Voltar
+        </Button>
+        <Button variant="secondary" size="sm" disabled={busy} onClick={() => void load()}>
           Atualizar
-        </button>
+        </Button>
       </div>
 
-      <section className="card op-hero">
-        <div className="op-hero__main">
-          <h2 className="op-hero__title">{desc || 'Despesa'}</h2>
-          <p className="op-hero__meta">
-            <span className="op-mono">{pickStr(raw, 'id', 'Id')}</span>
-            {supplier && (
-              <>
-                {' · '}
-                <span>Fornecedor: {supplier}</span>
-              </>
-            )}
-            {!supplier && supplierId && (
-              <>
-                {' · '}
-                <span>Fornecedor (id): {supplierId}</span>
-              </>
-            )}
-          </p>
-          <div className="op-hero__badges">
-            <span className={badgeClass(processingStatusTone(processingCode))} title="Pipeline técnica">
-              Pipeline: {humanizeProcessingPt(processingCode)}
-            </span>
-            <span className={badgeClass(approvalStatusTone(approvalCode))} title="Aprovação humana">
-              Aprovação: {humanizeApprovalPt(approvalCode)}
-            </span>
-            <span className={badgeClass(settlementStatusTone(settlementCode))} title="Liquidação">
-              Liquidação: {humanizeSettlementPt(settlementCode)}
-            </span>
-            <span className="op-badge op-badge--neutral" title="Espelho legado para relatórios">
-              Estado legado: {legacyStatus || '—'}
-            </span>
-            <span className={badgeClass(confidenceTone(conf, lowConf))} title="Confiança do enriquecimento (0–1)">
-              Confiança: {formatConfidencePercent(conf)}
-              {lowConf ? ' · baixa' : ''}
-            </span>
+      {/* Hero Card */}
+      <Card padding="lg">
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Informações principais */}
+          <div className="flex-1 space-y-4">
+            <h2 className="text-2xl font-bold text-text-main">{desc || 'Despesa'}</h2>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {supplier && (
+                <span className="text-sm text-text-muted">
+                  Fornecedor: <strong>{supplier}</strong>
+                </span>
+              )}
+              {!supplier && supplierId && (
+                <span className="text-sm text-text-muted">
+                  Fornecedor ID: <code>{supplierId}</code>
+                </span>
+              )}
+            </div>
+
+            {/* Badges de status */}
+            <div className="flex flex-wrap items-center gap-2">
+              {formatStatusBadge(humanizeProcessingPt(processingCode), processingTone(processingCode))}
+              {formatStatusBadge(humanizeApprovalPt(approvalCode), approvalTone(approvalCode))}
+              {formatStatusBadge(humanizeSettlementPt(settlementCode), settlementTone(settlementCode))}
+            </div>
+
+            {/* Confiança */}
+            <div className="flex items-center gap-2">
+              <Clock size={16} className="text-text-muted" />
+              <span className="text-sm text-text-muted">
+                Confiança: {conf != null ? `${(conf * 100).toFixed(0)}%` : '—'}
+              </span>
+              {lowConf && <Badge variant="warning">Baixa confiança</Badge>}
+            </div>
+          </div>
+
+          {/* KPIs */}
+          <div className="lg:w-64 space-y-3">
+            <Card padding="none" hoverEffect={false}>
+              <div className="flex items-center justify-between p-3">
+                <span className="text-sm text-text-muted">Total</span>
+                <span className="font-bold text-brand-primary">{formatCurrency(total)}</span>
+              </div>
+            </Card>
+            <Card padding="none" hoverEffect={false}>
+              <div className="flex items-center justify-between p-3">
+                <span className="text-sm text-text-muted">Pago</span>
+                <span className="font-bold text-green-600">{formatCurrency(paid)}</span>
+              </div>
+            </Card>
+            <Card padding="none" hoverEffect={false}>
+              <div className="flex items-center justify-between p-3">
+                <span className="text-sm text-text-muted">Em aberto</span>
+                <span className="font-bold text-yellow-600">{formatCurrency(outstanding)}</span>
+              </div>
+            </Card>
           </div>
         </div>
-        <dl className="op-kpi-grid">
-          <div>
-            <dt>Total</dt>
-            <dd>{money(total)}</dd>
-          </div>
-          <div>
-            <dt>Pago</dt>
-            <dd>{money(paid)}</dd>
-          </div>
-          <div>
-            <dt>Em aberto</dt>
-            <dd>{money(outstanding)}</dd>
-          </div>
-          <div>
-            <dt>Emissão</dt>
-            <dd>{issue ? formatDatePtBr(issue) : '—'}</dd>
-          </div>
-          <div>
-            <dt>Retries pipeline</dt>
-            <dd>{retryCount}</dd>
-          </div>
-          <div>
-            <dt>Documento bruto</dt>
-            <dd className="op-mono">{rawDoc || '—'}</dd>
-          </div>
-        </dl>
-      </section>
 
+        {/* Detalhes adicionais */}
+        <div className="mt-4 pt-4 border-t border-surface-border grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <p className="text-xs text-text-muted uppercase tracking-wide">Emissão</p>
+            <p className="font-medium">{issue ? formatDatePtBr(issue) : '—'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-text-muted uppercase tracking-wide">Retries</p>
+            <p className="font-medium">{retryCount}</p>
+          </div>
+          <div>
+            <p className="text-xs text-text-muted uppercase tracking-wide">Documento</p>
+            <p className="font-medium text-sm truncate" title={rawDoc}>
+              {rawDoc || '—'}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-text-muted uppercase tracking-wide">Status legado</p>
+            <p className="font-medium">{legacyStatus || '—'}</p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Banner de falha */}
       {(processingCode === 'Failed' || failReason) && (
-        <div className="banner banner--error op-failure-banner">
-          <strong>Falha de processamento</strong>
-          {failedAt && <span className="op-muted"> · {formatDateTimePtBr(failedAt)}</span>}
-          {failReason && <p className="op-failure-reason">{failReason}</p>}
-          {lastPipe && <p className="op-muted">Última transição de pipeline: {formatDateTimePtBr(lastPipe)}</p>}
+        <div className="banner banner--error mb-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={18} />
+            <strong>Falha de processamento</strong>
+            {failedAt && <span className="op-muted"> · {formatDateTimePtBr(failedAt)}</span>}
+          </div>
+          {failReason && <p className="mt-2">{failReason}</p>}
+          {lastPipe && (
+            <p className="text-sm text-text-muted mt-1">Última transição: {formatDateTimePtBr(lastPipe)}</p>
+          )}
         </div>
       )}
 
+      {/* Processamento parcial */}
       {processingCode === 'PartiallyCompleted' && (
-        <div className="banner banner--warning">
-          Processamento concluído com lacunas: validar itens e benchmark antes de aprovar.
+        <div className="banner banner--warning mb-4">
+          <div className="flex items-center gap-2">
+            <Clock size={18} />
+            <strong>Processamento incompleto</strong>
+          </div>
+          <p className="mt-1">Validar itens e benchmark antes de aprovar.</p>
         </div>
       )}
 
-      <div className="op-two-col">
-        <section className="card op-governance-card">
-          <h3>Governança e máquina de estados</h3>
-          <p className="op-muted">
-            Três eixos independentes: pipeline técnica, decisão humana e liquidação. As ações disponíveis derivam do agregado
-            no servidor.
+      {/* Duas colunas: Governança + Ações */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {/* Governança */}
+        <Card padding="lg" className="lg:col-span-2">
+          <h3 className="text-lg font-semibold text-text-main mb-3 flex items-center gap-2">
+            <FileText size={18} />
+            Governança e Pipeline
+          </h3>
+          <p className="text-sm text-text-muted mb-4">
+            Três eixos independentes: pipeline técnica, decisão humana e liquidação.
           </p>
 
-          <h4 className="op-subhead">Pipeline (técnica)</h4>
-          <p className="op-current-line">
-            Etapa atual:{' '}
-            <strong>{currentProcessing?.label ?? humanizeProcessingPt(processingCode)}</strong>
-          </p>
-          <details className="op-catalog">
-            <summary>Catálogo de estados da pipeline</summary>
-            <ul className="op-step-list">
-              {processingSteps.map((s) => (
-                <li key={s.code} className={`op-step op-step--${s.state}`}>
-                  <span className="op-step__code">{s.code}</span>
-                  <span className="op-step__label">{s.label}</span>
-                </li>
-              ))}
-            </ul>
-          </details>
+          {/* Pipeline atual */}
+          <div className="mb-4">
+            <h4 className="font-medium text-text-main mb-2 flex items-center gap-2">
+              <Clock size={16} />
+              Pipeline (técnica)
+            </h4>
+            <p className="text-sm">
+              Etapa atual: <strong>{currentProcessing?.label ?? humanizeProcessingPt(processingCode)}</strong>
+            </p>
+          </div>
 
-          <h4 className="op-subhead">Aprovação</h4>
-          <ol className="op-track op-track--approval">
-            {approvalSteps.map((s) => (
-              <li key={s.code} className={`op-track__step op-track__step--${s.state}`}>
-                <span className="op-track__dot" aria-hidden />
-                <span>{s.label}</span>
-              </li>
-            ))}
-          </ol>
-
-          <h4 className="op-subhead">Liquidação</h4>
-          <ol className="op-track op-track--settlement">
-            {settlementSteps.map((s) => (
-              <li key={s.code} className={`op-track__step op-track__step--${s.state}`}>
-                <span className="op-track__dot" aria-hidden />
-                <span>{s.label}</span>
-              </li>
-            ))}
-          </ol>
-
+          {/* Próximas ações */}
           {nextActions.length > 0 && (
-            <div className="op-next-actions">
-              <span className="op-muted">Próximas ações possíveis (servidor):</span>
-              <div className="op-next-actions__chips">
+            <div className="mb-4">
+              <h4 className="font-medium text-text-main mb-2 flex items-center gap-2">
+                <TrendingUp size={16} />
+                Próximas ações possíveis
+              </h4>
+              <div className="flex flex-wrap gap-2">
                 {nextActions.map((k) => (
-                  <span key={k} className="op-chip">
+                  <Badge key={k} variant="neutral">
                     {NEXT_ACTION_LABELS[k] ?? k}
-                  </span>
+                  </Badge>
                 ))}
               </div>
             </div>
           )}
-        </section>
 
-        <section className="card op-side-card">
-          <h3>Ações operacionais</h3>
-          <div className="op-actions">
-            <button type="button" className="btn-primary" disabled={busy || !canApprove} onClick={() => void onApprove()}>
-              Aprovar
-            </button>
-            <button
-              type="button"
-              className="btn-small secondary"
+          {/* Timeline */}
+          <div className="mt-6">
+            <h4 className="font-medium text-text-main mb-3 flex items-center gap-2">
+              <Clock size={16} />
+              Trilha de auditoria
+            </h4>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {filteredTimeline.length === 0 ? (
+                <p className="text-sm text-text-muted">Sem eventos neste filtro.</p>
+              ) : (
+                filteredTimeline.map((e, idx) => (
+                  <div
+                    key={`${e.at}-${idx}`}
+                    className="flex gap-3 p-3 rounded-lg border border-surface-border bg-surface-muted/30"
+                  >
+                    <time dateTime={e.at} className="text-xs text-text-muted whitespace-nowrap">
+                      {formatDateTimePtBr(e.at)}
+                    </time>
+                    <div>
+                      <p className="font-medium text-sm text-text-main">{e.title}</p>
+                      {e.detail && <p className="text-xs text-text-muted mt-0.5">{e.detail}</p>}
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="neutral">{TIMELINE_SOURCE_PT[e.source] ?? e.source}</Badge>
+                        {e.action && <span className="text-xs text-text-muted">{e.action}</span>}
+                        {e.actorName && <span className="text-xs text-text-muted">Por {e.actorName}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </Card>
+
+        {/* Ações */}
+        <Card padding="lg">
+          <h3 className="text-lg font-semibold text-text-main mb-4 flex items-center gap-2">
+            <CheckCircle2 size={18} />
+            Ações Operacionais
+          </h3>
+
+          <div className="space-y-2 mb-4">
+            <Button
+              variant="primary"
+              fullWidth
+              disabled={busy || !canApprove}
+              onClick={() => setApproveOpen(true)}
+            >
+              Aprovar…
+            </Button>
+            <Button
+              variant="secondary"
+              fullWidth
               disabled={busy || !canReject}
               onClick={() => {
                 setReasonText('');
+                setReasonError(null);
                 setReasonOpen('reject');
               }}
             >
               Rejeitar…
-            </button>
-            <button
-              type="button"
-              className="btn-small secondary"
+            </Button>
+            <Button
+              variant="secondary"
+              fullWidth
               disabled={busy || !canCancel}
               onClick={() => {
                 setReasonText('');
+                setReasonError(null);
                 setReasonOpen('cancel');
               }}
             >
               Cancelar…
-            </button>
-            <button type="button" className="btn-small secondary" disabled={busy || !canRetry} onClick={() => void onRetry()}>
+            </Button>
+            <Button variant="secondary" fullWidth disabled={busy || !canRetry} onClick={() => void onRetry()}>
               Reiniciar processamento
-            </button>
-            <button type="button" className="btn-small secondary" disabled={busy || !canPay} onClick={() => setPaymentOpen(true)}>
-              Registar pagamento…
-            </button>
+            </Button>
           </div>
-          <p className="op-muted op-small">
-            Rejeição e cancelamento exigem justificativa (auditoria). Estorno por linha na tabela de pagamentos.
-          </p>
 
-          <h4 className="op-subhead">Conformidade e notificações</h4>
-          <p className="op-muted op-small">
-            Obrigações do condomínio (vistorias e prazos): use <Link to="/conformidades">Obrigações</Link>. Notificações por
-            despesa não estão agregadas neste gateway — o disparo depende dos serviços de alerta configurados.
-          </p>
+          <p className="text-xs text-text-muted mb-4">Rejeição e cancelamento exigem justificativa.</p>
 
-          <h4 className="op-subhead">Benchmark (mercado)</h4>
-          <p className="op-muted op-small">
-            Resultados de benchmark aparecem na linha temporal como eventos de auditoria (ex.: análise de preço). Não existe
-            endpoint público dedicado por despesa nesta versão do gateway.
-          </p>
-        </section>
-      </div>
-
-      <section className="card">
-        <div className="op-timeline-header">
-          <h3>Linha temporal operacional</h3>
-          <div className="op-segmented" role="tablist">
-            {(
-              [
-                ['all', 'Completa'],
-                ['audit', 'Auditoria'],
-                ['ia', 'IA & benchmark'],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={timelineTab === key}
-                className={timelineTab === key ? 'is-active' : ''}
-                onClick={() => setTimelineTab(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <ul className="op-timeline">
-          {filteredTimeline.length === 0 && <li className="op-muted">Sem eventos neste filtro.</li>}
-          {filteredTimeline.map((e, idx) => (
-            <li key={`${e.at}-${idx}`} className={`op-timeline__item op-timeline__item--${e.source}`}>
-              <time dateTime={e.at}>{formatDateTimePtBr(e.at)}</time>
-              <div className="op-timeline__body">
-                <strong>{e.title}</strong>
-                {e.detail && <p className="op-timeline__detail">{e.detail}</p>}
-                <p className="op-timeline__meta">
-                  <span className="op-badge op-badge--neutral">{e.source}</span>
-                  {e.action && <span className="op-mono">{e.action}</span>}
-                  {e.actorName && <span>Por {e.actorName}</span>}
-                </p>
+          {/* Pagamentos */}
+          <div className="border-t border-surface-border pt-4">
+            <h4 className="font-medium text-text-main mb-2 flex items-center gap-2">
+              <CreditCard size={16} />
+              Pagamentos
+            </h4>
+            {payments.length === 0 ? (
+              <p className="text-sm text-text-muted">Nenhum pagamento registado.</p>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {payments.map((p, i) => {
+                  const pid = readEntityId(p);
+                  const refunded = Boolean(p?.isRefunded ?? p?.IsRefunded);
+                  return (
+                    <div
+                      key={pid || `payment-${i}`}
+                      className="flex items-center justify-between p-2 rounded border border-surface-border"
+                    >
+                      <div>
+                        <p className="font-medium text-sm">
+                          {formatCurrency(Number((p?.amount ?? p?.Amount) || 0))}
+                        </p>
+                        <p className="text-xs text-text-muted">
+                          {(p?.paymentDate ?? p?.PaymentDate)
+                            ? formatDatePtBr(String(p?.paymentDate ?? p?.PaymentDate))
+                            : '—'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={refunded ? 'warn' : 'ok'}>{refunded ? 'Estornado' : 'Ativo'}</Badge>
+                        {!refunded && canRefund && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={!pid || busy}
+                            onClick={() => openRefundModal(pid)}
+                          >
+                            Estornar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </li>
-          ))}
-        </ul>
-      </section>
+            )}
 
-      <div className="op-two-col">
-        <section className="card">
-          <h3>Itens da despesa</h3>
-          {items.length === 0 ? (
-            <p className="op-muted">Sem itens linha a linha.</p>
-          ) : (
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Descrição</th>
-                    <th>Qtd</th>
-                    <th>Unit.</th>
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((it, i) => (
-                    <tr key={pickStr(it, 'id', 'Id') + String(i)}>
-                      <td>{pickStr(it, 'description', 'Description')}</td>
-                      <td>{pickNum(it, 'quantity', 'Quantity') ?? '—'}</td>
-                      <td>{money(pickNum(it, 'unitPrice', 'UnitPrice'))}</td>
-                      <td>{money(pickNum(it, 'totalPrice', 'TotalPrice'))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <section className="card">
-          <h3>Pagamentos</h3>
-          {payments.length === 0 ? (
-            <p className="op-muted">Nenhum pagamento registado.</p>
-          ) : (
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Valor</th>
-                    <th>Método</th>
-                    <th>Ref.</th>
-                    <th>Estado</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map((p, i) => {
-                    const pid = pickStr(p, 'id', 'Id');
-                    const refunded = pickBool(p, 'isRefunded', 'IsRefunded');
-                    return (
-                      <tr key={pid + String(i)}>
-                        <td>{formatDatePtBr(pickStr(p, 'paymentDate', 'PaymentDate'))}</td>
-                        <td>{money(pickNum(p, 'amount', 'Amount'))}</td>
-                        <td>{pickStr(p, 'method', 'Method')}</td>
-                        <td className="op-mono">{pickStr(p, 'referenceCode', 'ReferenceCode') || '—'}</td>
-                        <td>{refunded ? <span className="op-badge op-badge--warn">Estornado</span> : <span className="op-badge op-badge--ok">Ativo</span>}</td>
-                        <td>
-                          {!refunded && canRefund && (
-                            <button
-                              type="button"
-                              className="btn-small secondary"
-                              disabled={busy}
-                              onClick={() => {
-                                setRefundPid(pid);
-                                setRefundReason('');
-                              }}
-                            >
-                              Estornar…
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+            <Button
+              variant="secondary"
+              fullWidth
+              className="mt-3"
+              disabled={busy || !canPay}
+              onClick={openPaymentModal}
+            >
+              Registar pagamento…
+            </Button>
+          </div>
+        </Card>
       </div>
 
-      <section className="card">
-        <h3>Justificativas e comentários</h3>
-        <p className="op-muted op-small">
-          Justificativas de rejeição, cancelamento e estorno são obrigatórias nas ações acima e ficam registadas no domínio e
-          na linha temporal quando o backend as materializa em auditoria. Não existe ainda endpoint de comentários livres
-          por despesa neste cliente.
-        </p>
-      </section>
+      {/* Itens da despesa */}
+      <Card padding="lg" className="mb-6">
+        <h3 className="text-lg font-semibold text-text-main mb-4 flex items-center gap-2">
+          <FileText size={18} />
+          Itens da Despesa
+        </h3>
+        {items.length === 0 ? (
+          <p className="text-sm text-text-muted">Sem itens linha a linha.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-surface-border">
+                  <th className="text-left py-2 text-sm font-medium text-text-muted">Descrição</th>
+                  <th className="text-right py-2 text-sm font-medium text-text-muted">Qtd</th>
+                  <th className="text-right py-2 text-sm font-medium text-text-muted">Unit.</th>
+                  <th className="text-right py-2 text-sm font-medium text-text-muted">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((it, i) => {
+                  const qtyRaw = it?.quantity ?? it?.Quantity;
+                  const qtyDisplay =
+                    qtyRaw != null && qtyRaw !== '' && !Number.isNaN(Number(qtyRaw)) ? Number(qtyRaw) : '—';
+                  return (
+                    <tr
+                      key={String((it?.id ?? it?.Id) || '') + String(i)}
+                      className="border-b border-surface-border/50"
+                    >
+                      <td className="py-2 text-sm">{String((it?.description ?? it?.Description) || '—')}</td>
+                      <td className="py-2 text-sm text-right">{qtyDisplay}</td>
+                      <td className="py-2 text-sm text-right">
+                        {formatCurrency(Number((it?.unitPrice ?? it?.UnitPrice) || 0))}
+                      </td>
+                      <td className="py-2 text-sm font-medium text-right">
+                        {formatCurrency(Number((it?.totalPrice ?? it?.TotalPrice) || 0))}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
-      {(reasonOpen || paymentOpen || refundPid) && (
-        <div
-          className="op-modal-backdrop"
-          role="presentation"
-          onClick={() => {
-            if (busy) return;
+      {/* Modais */}
+      <Modal
+        open={approveOpen}
+        onClose={() => {
+          if (!busy) setApproveOpen(false);
+        }}
+        title="Aprovar despesa"
+        footer={
+          <>
+            <Button type="button" variant="secondary" disabled={busy} onClick={() => setApproveOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={busy}
+              loading={busy}
+              onClick={() => void onApprove()}
+            >
+              Confirmar aprovação
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-text-muted">
+          Confirma a aprovação desta despesa para o condomínio? Esta ação fica registada na trilha de
+          auditoria.
+        </p>
+      </Modal>
+
+      <Modal
+        open={reasonOpen === 'reject'}
+        onClose={() => {
+          if (!busy) {
             setReasonOpen(null);
-            setPaymentOpen(false);
-            setRefundPid(null);
-          }}
-        >
-          <div
-            className="op-modal"
-            role="dialog"
-            aria-modal="true"
-            onClick={(ev) => ev.stopPropagation()}
-          >
-            {reasonOpen && (
-              <>
-                <h4>{reasonOpen === 'reject' ? 'Rejeitar despesa' : 'Cancelar despesa'}</h4>
-                <textarea
-                  className="op-textarea"
-                  rows={4}
-                  value={reasonText}
-                  onChange={(ev) => setReasonText(ev.target.value)}
-                  placeholder="Descreva o motivo (auditoria)."
-                />
-                <div className="op-modal__actions">
-                  <button type="button" className="btn-small secondary" disabled={busy} onClick={() => setReasonOpen(null)}>
-                    Fechar
-                  </button>
-                  <button type="button" className="btn-primary" disabled={busy} onClick={() => void submitReason()}>
-                    Confirmar
-                  </button>
-                </div>
-              </>
-            )}
-            {paymentOpen && (
-              <>
-                <h4>Registar pagamento</h4>
-                <label className="op-field">
-                  Valor (BRL)
-                  <input type="text" inputMode="decimal" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
-                </label>
-                <label className="op-field">
-                  Data
-                  <input type="datetime-local" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
-                </label>
-                <label className="op-field">
-                  Método
-                  <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)}>
-                    {PAYMENT_METHODS.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="op-field">
-                  Referência (opcional)
-                  <input type="text" value={payRef} onChange={(e) => setPayRef(e.target.value)} />
-                </label>
-                <div className="op-modal__actions">
-                  <button type="button" className="btn-small secondary" disabled={busy} onClick={() => setPaymentOpen(false)}>
-                    Fechar
-                  </button>
-                  <button type="button" className="btn-primary" disabled={busy} onClick={() => void submitPayment()}>
-                    Registar
-                  </button>
-                </div>
-              </>
-            )}
-            {refundPid && (
-              <>
-                <h4>Estornar pagamento</h4>
-                <p className="op-muted op-small op-mono">{refundPid}</p>
-                <textarea
-                  className="op-textarea"
-                  rows={3}
-                  value={refundReason}
-                  onChange={(ev) => setRefundReason(ev.target.value)}
-                  placeholder="Motivo do estorno"
-                />
-                <div className="op-modal__actions">
-                  <button type="button" className="btn-small secondary" disabled={busy} onClick={() => setRefundPid(null)}>
-                    Fechar
-                  </button>
-                  <button type="button" className="btn-primary" disabled={busy} onClick={() => void submitRefund()}>
-                    Confirmar estorno
-                  </button>
-                </div>
-              </>
-            )}
+            setReasonText('');
+            setReasonError(null);
+          }
+        }}
+        title="Rejeitar despesa"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={busy}
+              onClick={() => {
+                setReasonOpen(null);
+                setReasonText('');
+                setReasonError(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" form="reject-expense-form" variant="primary" disabled={busy} loading={busy}>
+              Confirmar rejeição
+            </Button>
+          </>
+        }
+      >
+        <form id="reject-expense-form" onSubmit={(e) => void submitReject(e)}>
+          <textarea
+            rows={4}
+            value={reasonText}
+            onChange={(e) => {
+              setReasonText(e.target.value);
+              if (reasonError) setReasonError(null);
+            }}
+            placeholder="Descreva o motivo da rejeição (auditoria)."
+            className="w-full px-3 py-2 text-sm rounded-lg border border-surface-border bg-surface-background focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            aria-invalid={!!reasonError}
+          />
+          {reasonError && (
+            <p className="mt-2 text-sm text-status-error" role="alert">
+              {reasonError}
+            </p>
+          )}
+        </form>
+      </Modal>
+
+      <Modal
+        open={reasonOpen === 'cancel'}
+        onClose={() => {
+          if (!busy) {
+            setReasonOpen(null);
+            setReasonText('');
+            setReasonError(null);
+          }
+        }}
+        title="Cancelar despesa"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={busy}
+              onClick={() => {
+                setReasonOpen(null);
+                setReasonText('');
+                setReasonError(null);
+              }}
+            >
+              Voltar
+            </Button>
+            <Button type="submit" form="cancel-expense-form" variant="primary" disabled={busy} loading={busy}>
+              Confirmar cancelamento
+            </Button>
+          </>
+        }
+      >
+        <form id="cancel-expense-form" onSubmit={(e) => void submitCancel(e)}>
+          <textarea
+            rows={4}
+            value={reasonText}
+            onChange={(e) => {
+              setReasonText(e.target.value);
+              if (reasonError) setReasonError(null);
+            }}
+            placeholder="Descreva o motivo do cancelamento (auditoria)."
+            className="w-full px-3 py-2 text-sm rounded-lg border border-surface-border bg-surface-background focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            aria-invalid={!!reasonError}
+          />
+          {reasonError && (
+            <p className="mt-2 text-sm text-status-error" role="alert">
+              {reasonError}
+            </p>
+          )}
+        </form>
+      </Modal>
+
+      <Modal
+        open={paymentOpen}
+        onClose={() => {
+          if (!busy) setPaymentOpen(false);
+        }}
+        title="Registar pagamento"
+        footer={
+          <>
+            <Button type="button" variant="secondary" disabled={busy} onClick={() => setPaymentOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={busy}
+              loading={busy}
+              onClick={() => void submitPayment()}
+            >
+              Registar pagamento
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="pay-amount" className="block text-sm font-medium text-text-main mb-1">
+              Valor (R$)
+            </label>
+            <input
+              id="pay-amount"
+              type="text"
+              inputMode="numeric"
+              value={payAmount}
+              onChange={(e) => setPayAmount(formatBrlInput(e.target.value))}
+              placeholder="0,00"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-surface-border bg-surface-background focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            />
+          </div>
+          <div>
+            <label htmlFor="pay-date" className="block text-sm font-medium text-text-main mb-1">
+              Data e hora
+            </label>
+            <input
+              id="pay-date"
+              type="datetime-local"
+              value={payDate}
+              onChange={(e) => setPayDate(e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-surface-border bg-surface-background focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            />
+          </div>
+          <div>
+            <label htmlFor="pay-method" className="block text-sm font-medium text-text-main mb-1">
+              Forma de pagamento
+            </label>
+            <select
+              id="pay-method"
+              value={payMethod}
+              onChange={(e) => setPayMethod(e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-surface-border bg-surface-background focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            >
+              {PAYMENT_METHOD_OPTIONS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="pay-ref" className="block text-sm font-medium text-text-main mb-1">
+              Referência (opcional)
+            </label>
+            <input
+              id="pay-ref"
+              type="text"
+              value={payRef}
+              onChange={(e) => setPayRef(e.target.value)}
+              placeholder="Código ou comprovante"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-surface-border bg-surface-background focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            />
           </div>
         </div>
-      )}
+      </Modal>
+
+      <Modal
+        open={!!refundPid}
+        onClose={() => {
+          if (!busy) {
+            setRefundPid(null);
+            setRefundReason('');
+            setRefundError(null);
+          }
+        }}
+        title="Estornar pagamento"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={busy}
+              onClick={() => {
+                setRefundPid(null);
+                setRefundReason('');
+                setRefundError(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" form="refund-payment-form" variant="primary" disabled={busy} loading={busy}>
+              Confirmar estorno
+            </Button>
+          </>
+        }
+      >
+        <form id="refund-payment-form" onSubmit={(e) => void submitRefund(e)}>
+          <p className="text-sm text-text-muted font-mono mb-3">{refundPid}</p>
+          <textarea
+            rows={3}
+            value={refundReason}
+            onChange={(e) => {
+              setRefundReason(e.target.value);
+              if (refundError) setRefundError(null);
+            }}
+            placeholder="Motivo do estorno"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-surface-border bg-surface-background focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            aria-invalid={!!refundError}
+          />
+          {refundError && (
+            <p className="mt-2 text-sm text-status-error" role="alert">
+              {refundError}
+            </p>
+          )}
+        </form>
+      </Modal>
     </div>
   );
 };

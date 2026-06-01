@@ -1,43 +1,34 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthSessionProvider } from './context/AuthSessionContext';
+import { AuthProvider } from './context/AuthContext';
 import { ErrorProvider } from './utils/global-error-handler';
 import { ToastProvider } from './components/ui/Toast';
 import { LoginForm } from './features/auth/components/LoginForm';
 import { RegisterForm } from './features/auth/components/RegisterForm';
-import { MainLayout } from './app/layouts/MainLayout';
+import { MainLayoutRefactored } from './app/layouts/MainLayoutRefactored';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
+import { QueryProvider } from './app/QueryProvider';
+import TestPage from './pages/TestPage';
 
 function App() {
-  // TEMP_AUTH_DISABLED: Ativar modo desenvolvimento sem autenticação
-  // Remova a linha abaixo ou defina como false para reativar autenticação
-  const TEMP_AUTH_DISABLED = true; // CHANGE: false para reativar auth
-  if (TEMP_AUTH_DISABLED && typeof window !== 'undefined') {
-    localStorage.setItem('TEMP_AUTH_DISABLED_MODE', 'true');
-  }
-
   return (
     <ErrorProvider>
-      <ToastProvider>
-        <Router>
-          <AppErrorBoundary>
-            <AuthSessionProvider>
-              <Routes>
-                <Route
-                  path="/login"
-                  element={<LoginForm defaultTenantId={import.meta.env.VITE_DEFAULT_TENANT_ID} />}
-                />
-                <Route
-                  path="/register"
-                  element={<RegisterForm defaultTenantId={import.meta.env.VITE_DEFAULT_TENANT_ID} />}
-                />
-                {/* TEMP_AUTH_DISABLED: Redirecionar /auth.html → /dashboard em modo dev */}
-                <Route path="/auth.html" element={<Navigate to={TEMP_AUTH_DISABLED ? "/dashboard" : "/login"} replace />} />
-                <Route path="*" element={<MainLayout />} />
-              </Routes>
-            </AuthSessionProvider>
-          </AppErrorBoundary>
-        </Router>
-      </ToastProvider>
+      <QueryProvider>
+        <ToastProvider>
+          <Router>
+            <AppErrorBoundary>
+              <AuthProvider>
+                <Routes>
+                  <Route path="/login" element={<LoginForm />} />
+                  <Route path="/register" element={<RegisterForm />} />
+                  <Route path="/auth.html" element={<Navigate to="/login" replace />} />
+                  <Route path="/test" element={<TestPage />} />
+                  <Route path="/*" element={<MainLayoutRefactored />} />
+                </Routes>
+              </AuthProvider>
+            </AppErrorBoundary>
+          </Router>
+        </ToastProvider>
+      </QueryProvider>
     </ErrorProvider>
   );
 }

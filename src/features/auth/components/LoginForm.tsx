@@ -1,41 +1,52 @@
-import React, { useCallback, useMemo, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { CondominioLookupModal } from '../../../components/auth/CondominioLookupModal';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type { CondoRow } from '../../../lib/condominio-lookup';
-import { useAuthSession } from '../../../context/AuthSessionContext';
+import { formatApiError } from '../../../lib/api-error-message';
+import { EcondomizaApi } from '../../../services';
+import { useAuth } from '../../../context/AuthContext';
 import { useLoginForm } from '../hooks/useLoginForm';
 import { useEstablishGatewaySession } from '../hooks/useEstablishGatewaySession';
-import { AUTH_COPY, isValidTenantGuid } from '../constants';
-import { Button, Input, PasswordInput, LoadingSpinner, FormError } from '../../../components/ui';
+import { AUTH_COPY } from '../constants';
+import { PRODUCT_COPY } from '../../../lib/product-copy';
+import { CondominioPickerField } from './CondominioPickerField';
+import { AuthScreenSwitch } from './AuthScreenSwitch';
+import {
+  Button,
+  Input,
+  PasswordInput,
+  LoadingSpinner,
+  FormError,
+  FormSuccessMessage,
+  SkeletonLoading,
+} from '../../../components/ui';
 
-export interface LoginFormProps {
-  defaultTenantId?: string;
-  onLoginError?: (error: string) => void;
+function LoginSessionSkeleton() {
+  return (
+    <main className="login-shell" aria-busy="true" aria-label="A verificar sessão">
+      <div className="login-shell__form-area w-full">
+        <div className="login-page space-y-4">
+          <SkeletonLoading size="lg" className="w-24 rounded-xl" />
+          <SkeletonLoading size="md" className="w-full rounded-lg" />
+          <SkeletonLoading size="md" className="w-full rounded-lg" />
+          <SkeletonLoading size="md" className="w-full rounded-lg" />
+        </div>
+      </div>
+    </main>
+  );
 }
 
-export interface LoginFormData {
-  tenantId: string;
-  email: string;
-  password: string;
-}
-
-export interface FormErrors {
-  tenantId?: string;
-  email?: string;
-  password?: string;
-  general?: string;
-}
-
-export const LoginForm: React.FC<LoginFormProps> = ({ defaultTenantId, onLoginError }) => {
+export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading: sessionLoading } = useAuthSession();
-  const { loginWithCredentials } = useEstablishGatewaySession();
-  const [modalOpen, setModalOpen] = useState(false);
+  const location = useLocation();
+  const { isAuthenticated, isLoading: sessionLoading } = useAuth();
+  const { establishFromEnvelope } = useEstablishGatewaySession();
   const [condoLabel, setCondoLabel] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const form = useLoginForm();
+  const locationMessage = (location.state as { message?: string } | null)?.message;
 
-  const { formData, errors, setErrors, validate, showAdvanced, setFormData } = form;
+  const { formData, errors, setErrors, validate, hasCondominio, setFormData } = useLoginForm();
 
   useEffect(() => {
     if (!sessionLoading && isAuthenticated) {
@@ -43,18 +54,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ defaultTenantId, onLoginEr
     }
   }, [sessionLoading, isAuthenticated, navigate]);
 
-  const summaryDisplay = useMemo(() => {
-    if (condoLabel && condoLabel.trim()) return condoLabel.trim();
-    if (!formData.tenantId) return null;
-    if (!isValidTenantGuid(formData.tenantId)) return null;
-    return formData.tenantId.trim();
-  }, [condoLabel, formData.tenantId]);
+  const summaryDisplay = useMemo(() => condoLabel?.trim() || null, [condoLabel]);
 
   const onCondoPicked = useCallback(
     (row: CondoRow) => {
-      setErrors((prev: FormErrors) => ({ ...prev, tenantId: undefined }));
+      setErrors((prev) => ({ ...prev, tenantId: undefined }));
       setCondoLabel(row.label);
-      setFormData((prev: LoginFormData) => ({ ...prev, tenantId: row.id }));
+      setFormData((prev) => ({ ...prev, tenantId: row.id }));
     },
     [setFormData, setErrors]
   );
@@ -62,205 +68,131 @@ export const LoginForm: React.FC<LoginFormProps> = ({ defaultTenantId, onLoginEr
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      setErrors({} as FormErrors);
+      setErrors({});
+
+      if (!validate()) return;
 
       const tid = formData.tenantId.trim();
-      if (!isValidTenantGuid(tid)) {
-        setErrors((prev: FormErrors) => ({ ...prev, tenantId: AUTH_COPY.tenantRequired }));
+      if (!hasCondominio) {
+        setErrors((prev) => ({ ...prev, tenantId: AUTH_COPY.condominioRequired }));
         return;
       }
 
-      if (!formData.email || !formData.password) {
-        setErrors((prev: FormErrors) => ({
-          ...prev,
-          email: AUTH_COPY.emailPasswordRequired.email,
-          password: AUTH_COPY.emailPasswordRequired.password,
-        }));
-        return;
+      setSubmitting(true);
+      try {
+        const loginRes = await EcondomizaApi.login(tid, formData.email.trim(), formData.password);
+        const sessionResult = await establishFromEnvelope(loginRes.data);
+        if (sessionResult.ok) {
+          navigate('/dashboard', { replace: true });
+          return;
+        }
+        setErrors((prev) => ({ ...prev, general: sessionResult.message }));
+      } catch (err: unknown) {
+        setErrors((prev) => ({ ...prev, general: formatApiError(err) }));
+      } finally {
+        setSubmitting(false);
       }
-
-      const result = await loginWithCredentials(tid, formData.email.trim(), formData.password);
-      if (!result.ok) {
-        const msg = result.message;
-        if (onLoginError) onLoginError(msg);
-        setErrors((prev: FormErrors) => ({ ...prev, general: msg }));
-        return;
-      }
-
-      navigate('/dashboard', { replace: true });
     },
-    [formData.email, formData.password, formData.tenantId, navigate, onLoginError, setErrors, loginWithCredentials]
+    [
+      validate,
+      hasCondominio,
+      formData.tenantId,
+      formData.email,
+      formData.password,
+      establishFromEnvelope,
+      navigate,
+      setErrors,
+    ]
   );
 
-  const [isLoading, setIsLoading] = useState(false);
-
-  const onSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      setIsLoading(true);
-      const isValid = validate();
-      if (!isValid) {
-        setIsLoading(false);
-        return;
-      }
-
-      await handleSubmit(e);
-      setIsLoading(false);
-    },
-    [validate, handleSubmit]
-  );
-
-  useEffect(() => {
-    if (defaultTenantId) {
-      const tid = defaultTenantId.trim();
-      if (isValidTenantGuid(tid)) {
-        setCondoLabel(null);
-        setFormData((prev: LoginFormData) => ({ ...prev, tenantId: tid }));
-      }
-    }
-  }, [defaultTenantId, setFormData]);
-
-  useEffect(() => {
-    if (!formData.tenantId.trim()) {
-      setCondoLabel(null);
-    }
-  }, [formData.tenantId]);
+  if (sessionLoading) {
+    return <LoginSessionSkeleton />;
+  }
 
   return (
     <main className="login-shell" aria-labelledby="login-heading">
-      <div className="login-page">
-        <div className="login-card">
-          <img src="/logo-econdomiza.jpeg" alt="Logo" class="logo-large"></img>
-          <h2 id="login-heading">Entrar</h2>
-          <p id="login-intro" className="form-help login-intro">
-            Escolha o <strong>condomínio</strong> em que vai trabalhar. 
-          </p>
+      <aside className="login-shell__brand" aria-hidden="true">
+        <p className="login-shell__brand-kicker">{PRODUCT_COPY.brandKicker}</p>
+        <h1 className="login-shell__brand-title">{PRODUCT_COPY.brandTitle}</h1>
+        <p className="login-shell__brand-desc">
+          Fiscalize gastos, conformidade e alertas do seu condomínio com clareza e rastreabilidade — sem
+          complexidade de um ERP.
+        </p>
+        <div className="mt-8 flex items-center gap-2 text-sm text-white/80">
+          <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden />
+          <span>Acesso seguro via gateway com perfis por condomínio</span>
+        </div>
+      </aside>
 
-          <form onSubmit={onSubmit} aria-describedby="login-intro" noValidate>
-            <div className="form-group">
-              <label className="field-label" htmlFor="condo-summary-display">
-                Condomínio
-              </label>
-              <div className="condo-chosen-row">
-                <span
-                  id="condo-summary-display"
-                  className={`condo-summary${!summaryDisplay ? ' condo-summary--empty' : ''}`}
-                  aria-live="polite"
-                >
-                  {summaryDisplay ?? 'Nenhum condomínio selecionado'}
-                </span>
-                <button
-                  type="button"
-                  className="btn-lookup"
-                  onClick={() => setModalOpen(true)}
-                  aria-haspopup="dialog"
-                  aria-expanded={modalOpen}
-                  title="Buscar condomínios"
-                >
-                  Buscar
-                </button>
-              </div>
-
-              {errors.tenantId && <p className="text-sm text-red-600 mt-1">{errors.tenantId}</p>}
-            </div>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => form.setShowAdvanced((s: boolean) => !s)}
-              aria-expanded={showAdvanced}
-              aria-controls="tenant-advanced-panel"
-              id="tenant-advanced-toggle"
-            >
-              {showAdvanced ? 'Ocultar' : 'Tenant ID (avançado)'}
-            </Button>
-
-            {showAdvanced && (
-              <div
-                className="form-group"
-                id="tenant-advanced-panel"
-                role="region"
-                aria-labelledby="tenant-advanced-toggle"
-                style={{ marginBottom: 'var(--spacing-md)' }}
-              >
-                <Input
-                  label="Tenant ID (GUID)"
-                  id="tenantId"
-                  placeholder="00000000-0000-0000-0000-000000000000"
-                  value={formData.tenantId}
-                  onChange={(e) => {
-                    setCondoLabel(null);
-                    form.setFormData((prev: LoginFormData) => ({ ...prev, tenantId: e.target.value }));
-                  }}
-                  error={errors.tenantId}
-                  autoComplete="off"
-                  aria-describedby="tenantId-help"
-                />
-                <p id="tenantId-help" className="text-sm text-gray-500 mt-1">
-                  Uso operacional (suporte). O fluxo recomendado é <strong>Buscar</strong>.
-                </p>
-              </div>
-            )}
-
-            <Input
-              label="E-mail"
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => form.setFormData((prev: LoginFormData) => ({ ...prev, email: e.target.value }))}
-              error={errors.email}
-              autoComplete="username"
-              required
-              helperText="Digite seu e-mail corporativo"
-            />
-
-            <PasswordInput
-              label="Senha"
-              id="password"
-              value={formData.password}
-              onChange={(e) => form.setFormData((prev: LoginFormData) => ({ ...prev, password: e.target.value }))}
-              error={errors.password}
-              autoComplete="current-password"
-              required
-              helperText="Mínimo 8 caracteres"
-            />
-
-            {errors.general && (
-              <div className="mt-3">
-                <FormError className="auth-screen-error">{errors.general}</FormError>
-              </div>
-            )}
-
-            <div className="form-actions">
-              {isLoading ? (
-                <LoadingSpinner fullWidth message="A entrar…" />
-              ) : (
-                <Button type="submit" variant="primary" fullWidth>
-                  Entrar
-                </Button>
-              )}
-            </div>
-
-            <p className="form-help login-intro" style={{ marginTop: 'var(--spacing-lg)' }}>
-              <Link to="/register">Criar conta</Link>
-              {' · '}
-              <a href="/auth.html" className="link-accent">
-                Autenticação clássica (HTML)
-              </a>
+      <div className="login-shell__form-area">
+        <div className="login-page">
+          <div className="login-card">
+            <img src="/logo-econdomiza.jpeg" alt="" className="logo-large md:hidden" aria-hidden />
+            <h2 id="login-heading">Entrar</h2>
+            <p id="login-intro" className="form-help login-intro">
+              {PRODUCT_COPY.loginIntro}
             </p>
-          </form>
+
+            {locationMessage && (
+              <FormSuccessMessage className="auth-screen-success mb-4">{locationMessage}</FormSuccessMessage>
+            )}
+
+            <form
+              onSubmit={(e) => void handleSubmit(e)}
+              aria-describedby="login-intro"
+              noValidate
+              className="space-y-4"
+            >
+              <CondominioPickerField
+                id="login-condo-summary"
+                summaryLabel={summaryDisplay}
+                error={errors.tenantId}
+                helpText={PRODUCT_COPY.loginCondominioNote}
+                selectedId={formData.tenantId.trim() || undefined}
+                onSelect={onCondoPicked}
+              />
+
+              <Input
+                label="E-mail"
+                id="login-email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+                error={errors.email}
+                autoComplete="username"
+                required
+                disabled={!hasCondominio || submitting}
+                placeholder="seu@email.com"
+              />
+
+              <PasswordInput
+                label="Senha"
+                id="login-password"
+                value={formData.password}
+                onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
+                error={errors.password}
+                autoComplete="current-password"
+                required
+                disabled={!hasCondominio || submitting}
+              />
+
+              {errors.general && <FormError className="auth-screen-error">{errors.general}</FormError>}
+
+              <div className="form-actions pt-1">
+                {submitting ? (
+                  <LoadingSpinner fullWidth message="A entrar…" />
+                ) : (
+                  <Button type="submit" variant="primary" fullWidth disabled={!hasCondominio} size="lg">
+                    Entrar
+                  </Button>
+                )}
+              </div>
+
+              <AuthScreenSwitch mode="login" />
+            </form>
+          </div>
         </div>
       </div>
-
-      {modalOpen && (
-        <CondominioLookupModal
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          onConfirm={onCondoPicked}
-          currentTenantId={formData.tenantId.trim() || undefined}
-        />
-      )}
     </main>
   );
 };

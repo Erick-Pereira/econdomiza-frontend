@@ -1,73 +1,72 @@
-import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from 'react';
+import React, { forwardRef } from 'react';
+import { cn, focusRingClass, transitionInteractiveClass } from '../../lib/cn';
 
-export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
+const INPUT_BASE = [
+  'flex-1 min-w-0 w-full px-3 py-2 text-sm text-text-main',
+  'bg-surface-background border border-surface-border rounded-lg shadow-atomic',
+  focusRingClass,
+  transitionInteractiveClass,
+].join(' ');
+
+// ============================================
+// ESTILOS DE ERRO — Alto contraste para acessibilidade
+// ============================================
+const ERROR_STYLES = [
+  'border-status-error' /* Token semântico — Contraste WCAG */,
+  'focus:ring-status-error',
+  'focus:border-status-error',
+].join(' ');
+
+const ERROR_TEXT_STYLES = ['text-xs', 'text-status-error', 'mt-1'].join(' ');
+
+const HELPER_TEXT_STYLES = ['text-xs', 'text-text-muted', 'mt-1'].join(' ');
+
+// ============================================
+// TIPOS E INTERFACES
+// ============================================
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: string;
   helperText?: string;
-  icon?: ReactNode;
+  label?: React.ReactNode; /* Label opcional — wrapper visual (não atributo HTML) */
 }
 
+// ============================================
+// COMPONENTE INPUT — Transições suaves e tokens semânticos
+// ============================================
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, helperText, icon, className = '', id, ...props }, ref) => {
-    const autoId = useId();
-    const uniqueId = id ?? autoId;
-
-    return (
-      <div className={`w-full ${className}`}>
-        {label && (
-          <label
-            htmlFor={uniqueId}
-            className="block text-sm font-medium text-gray-700 mb-1.5"
-          >
+  ({ className, error, helperText, label, id, ...props }) => {
+    // Renderização com label opcional (wrapper visual, não atributo HTML)
+    if (label) {
+      return (
+        <div className="w-full space-y-1.5">
+          {/* Label semântico — A11y */}
+          <label htmlFor={id} className="block text-sm font-medium text-text-main">
             {label}
           </label>
-        )}
-        <div className="relative">
-          {icon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              {icon}
-            </div>
-          )}
-          <input
-            ref={ref}
-            id={uniqueId}
-            className={`
-              w-full px-4 py-2.5 
-              ${icon ? 'pl-10' : ''}
-              bg-white border 
-              rounded-lg 
-              text-gray-900 
-              placeholder:text-gray-400
-              focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
-              disabled:bg-gray-50 disabled:text-gray-500
-              transition-all duration-200
-              border-gray-300
-              hover:border-gray-400
-              ${error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''}
-            `}
-            aria-invalid={error ? 'true' : undefined}
-            aria-describedby={error ? `${uniqueId}-error` : helperText ? `${uniqueId}-helper` : undefined}
-            {...props}
-          />
+
+          <div className="w-full">
+            <input {...props} id={id} className={cn(INPUT_BASE, error && ERROR_STYLES, className)} />
+
+            {/* Mensagem de erro com alto contraste — Acessibilidade conforme diretriz */}
+            {error && <p className={ERROR_TEXT_STYLES}>{error}</p>}
+
+            {/* Texto helper opcional */}
+            {!error && helperText && <p className={HELPER_TEXT_STYLES}>{helperText}</p>}
+          </div>
         </div>
-        {error && (
-          <p
-            id={`${uniqueId}-error`}
-            className="mt-1.5 text-sm text-red-600 flex items-center gap-1"
-            role="alert"
-          >
-            <span aria-hidden="true">⚠️</span>
-            {error}
-          </p>
-        )}
-        {!error && helperText && (
-          <p
-            id={`${uniqueId}-helper`}
-            className="mt-1.5 text-sm text-gray-500"
-          >
-            {helperText}
-          </p>
-        )}
+      );
+    }
+
+    // Renderização sem label (comportamento original)
+    return (
+      <div className="w-full">
+        <input {...props} className={cn(INPUT_BASE, error && ERROR_STYLES, className)} />
+
+        {/* Mensagem de erro com alto contraste */}
+        {error && <p className={ERROR_TEXT_STYLES}>{error}</p>}
+
+        {/* Texto helper opcional */}
+        {!error && helperText && <p className={HELPER_TEXT_STYLES}>{helperText}</p>}
       </div>
     );
   }

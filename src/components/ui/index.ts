@@ -1,29 +1,40 @@
-// Exporta todos os componentes UI do Design System
+// Design System de Interface — Governança Visual (React + Vite)
+// Conforme Diretriz Técnica de Refinamento de UI/UX, Engenharia Estética e Governança Visual
 
-// Botões
-export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from './Button';
+export { Button } from './Button';
+export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
 
-// Inputs
-export { Input, type InputProps } from './Input';
-export { PasswordInput, type PasswordInputProps } from './PasswordInput';
-export { Select, type SelectProps } from './Select';
+export { Input } from './Input';
+export type { InputProps } from './Input';
 
-// Feedback
-export {
-  LoadingSpinner,
-  type LoadingSpinnerProps,
-  type SpinnerSize,
-} from './LoadingSpinner';
-export {
-  Toast,
-  ToastProvider,
-  useToast,
-  type ToastProps,
-  type ToastContextValue,
-  type ToastType,
-  ToastContext,
-} from './Toast';
+export { EmptyState } from './EmptyState';
+export type { EmptyStateProps } from './EmptyState';
 
-// Layout
+export { SkeletonLoading } from './SkeletonLoading';
+export type { SkeletonLoadingProps } from './SkeletonLoading';
+
+export { LoadingSpinner } from './LoadingSpinner';
+export type { LoadingSpinnerProps } from './LoadingSpinner';
+
+export { Card, default as CardDefault } from './Card';
+export type { CardProps } from './Card';
+
+export { Select } from './Select';
+export type { SelectProps } from './Select';
+
+export { PasswordInput } from './PasswordInput';
+export type { PasswordInputProps } from './PasswordInput';
+
+export { Toast, ToastProvider, useToast } from './Toast';
+
 export { FormError } from './FormError';
+export type { FormErrorProps } from './FormError';
+
 export { FormSuccessMessage } from './FormSuccessMessage';
+export type { FormSuccessMessageProps } from './FormSuccessMessage';
+
+export { Badge } from './Badge';
+export type { BadgeProps, BadgeVariant } from './Badge';
+
+export { Modal } from './Modal';
+export type { ModalProps } from './Modal';

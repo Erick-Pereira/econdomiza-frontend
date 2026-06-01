@@ -1,11 +1,8 @@
 import { Suspense, type ReactNode } from 'react';
+import { PageLoadingState } from './layout/PageLoadStates';
 
 export function RouteFallback() {
-  return (
-    <div className="page" style={{ padding: '1.5rem' }}>
-      <p>Carregando…</p>
-    </div>
-  );
+  return <PageLoadingState id="route-fallback" message="Carregando página…" skeletonMaxWidth={640} />;
 }
 
 export function LazyShell({ children }: { children: ReactNode }) {

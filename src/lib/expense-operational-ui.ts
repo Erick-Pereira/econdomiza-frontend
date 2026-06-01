@@ -36,9 +36,8 @@ export function approvalStatusTone(code: string): OpBadgeTone {
     case 'Approved':
       return 'ok';
     case 'Rejected':
-      return 'danger';
     case 'Cancelled':
-      return 'warn';
+      return 'danger';
     case 'PendingApproval':
       return 'info';
     default:
@@ -111,7 +110,7 @@ export function humanizeApprovalPt(code: string): string {
     case 'Rejected':
       return 'Rejeitada';
     case 'Cancelled':
-      return 'Cancelada';
+      return 'Cancelado';
     default:
       return code || '—';
   }
@@ -141,4 +140,26 @@ export function humanizeProcessingPt(code: string): string {
     PartiallyCompleted: 'Concluído (lacunas)',
   };
   return (m[code] ?? code) || '—';
+}
+
+/** Lê flags booleanas da API (camelCase/PascalCase, bool ou string). */
+export function readAllowedFlag(source: Record<string, unknown>, ...keys: string[]): boolean {
+  for (const key of keys) {
+    const v = source[key];
+    if (v === true) return true;
+    if (v === false) return false;
+    if (typeof v === 'string') {
+      const lower = v.trim().toLowerCase();
+      if (lower === 'true') return true;
+      if (lower === 'false') return false;
+    }
+  }
+  return false;
+}
+
+/** Extrai GUID de um objeto de pagamento/item. */
+export function readEntityId(obj: Record<string, unknown>): string {
+  const v = obj.id ?? obj.Id;
+  if (v == null || v === '') return '';
+  return String(v);
 }

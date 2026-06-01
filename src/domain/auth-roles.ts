@@ -1,9 +1,9 @@
 /**
  * Perfis de utilizador no condomínio — alinhados a
- * `Simcag.IdentityService.Domain.ValueObjects.Role` (Admin, Sindico, Conselho).
+ * `Simcag.IdentityService.Domain.ValueObjects.Role` (Admin, Sindico, Conselho, Morador).
  * Não introduzir valores extra sem atualizar o backend.
  */
-export const TENANT_ROLE_VALUES = ['Admin', 'Sindico', 'Conselho'] as const;
+export const TENANT_ROLE_VALUES = ['Admin', 'Sindico', 'Conselho', 'Morador'] as const;
 
 export type TenantRole = (typeof TENANT_ROLE_VALUES)[number];
 
@@ -11,6 +11,7 @@ export const TENANT_ROLE_LABELS: Record<TenantRole, string> = {
   Admin: 'Administrador',
   Sindico: 'Síndico',
   Conselho: 'Conselho',
+  Morador: 'Morador',
 };
 
 /** Papel pré-selecionado em formulários de registo (fluxo típico do síndico). */
@@ -26,8 +27,17 @@ export function normalizeRoleKey(role: string | undefined | null): string {
 
 /** Opções do select de registo: mesmos valores que a API aceita. */
 export const REGISTER_ROLE_OPTIONS: { value: TenantRole; label: string; helper?: string }[] = [
-  { value: 'Sindico', label: TENANT_ROLE_LABELS.Sindico, helper: 'Gestão operacional do condomínio' },
+  {
+    value: 'Sindico',
+    label: TENANT_ROLE_LABELS.Sindico,
+    helper: 'Supervisão e auditoria de gastos no condomínio',
+  },
   { value: 'Conselho', label: TENANT_ROLE_LABELS.Conselho, helper: 'Consulta e fiscalização' },
+  {
+    value: 'Morador',
+    label: TENANT_ROLE_LABELS.Morador,
+    helper: 'Consulta à auditoria e obrigações (leitura)',
+  },
   {
     value: 'Admin',
     label: TENANT_ROLE_LABELS.Admin,

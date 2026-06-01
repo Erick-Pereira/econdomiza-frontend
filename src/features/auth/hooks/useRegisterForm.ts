@@ -22,10 +22,8 @@ export interface RegisterFormErrors {
 export interface UseRegisterFormReturn {
   formData: RegisterFormData;
   errors: RegisterFormErrors;
-  showAdvanced: boolean;
   setFormData: Dispatch<SetStateAction<RegisterFormData>>;
   setErrors: Dispatch<SetStateAction<RegisterFormErrors>>;
-  setShowAdvanced: Dispatch<SetStateAction<boolean>>;
   validate: () => boolean;
   resetForm: () => void;
   isFormValid: boolean;
@@ -33,6 +31,8 @@ export interface UseRegisterFormReturn {
   isPasswordValid: boolean;
   isNameValid: boolean;
   hasCondominio: boolean;
+  showAdvanced: boolean;
+  setShowAdvanced: Dispatch<SetStateAction<boolean>>;
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -66,16 +66,16 @@ export const useRegisterForm = (): UseRegisterFormReturn => {
   }, [formData.tenantId]);
 
   const isFormValid = useMemo(() => {
-    return hasCondominio && !!formData.email && isEmailValid && isPasswordValid && isNameValid && !!formData.role;
+    return (
+      hasCondominio && !!formData.email && isEmailValid && isPasswordValid && isNameValid && !!formData.role
+    );
   }, [hasCondominio, formData.email, formData.role, isEmailValid, isPasswordValid, isNameValid]);
 
   const validate = useCallback((): boolean => {
     const newErrors: RegisterFormErrors = {};
 
-    if (!formData.tenantId) {
-      newErrors.tenantId = 'Selecione um condomínio ou informe um Tenant ID válido.';
-    } else if (!TENANT_GUID_REGEX.test(formData.tenantId.trim())) {
-      newErrors.tenantId = 'Tenant ID inválido. Use o modal de busca.';
+    if (!hasCondominio) {
+      newErrors.tenantId = 'Selecione um condomínio em Buscar.';
     }
 
     if (!formData.name || !isNameValid) {
@@ -96,7 +96,16 @@ export const useRegisterForm = (): UseRegisterFormReturn => {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData.tenantId, formData.name, formData.email, formData.password, formData.role, isEmailValid, isPasswordValid, isNameValid]);
+  }, [
+    formData.email,
+    formData.name,
+    formData.password,
+    formData.role,
+    hasCondominio,
+    isEmailValid,
+    isPasswordValid,
+    isNameValid,
+  ]);
 
   const resetForm = useCallback(() => {
     setFormData({
@@ -107,16 +116,13 @@ export const useRegisterForm = (): UseRegisterFormReturn => {
       role: DEFAULT_REGISTER_ROLE,
     });
     setErrors({});
-    setShowAdvanced(false);
   }, []);
 
   return {
     formData,
     errors,
-    showAdvanced,
     setFormData,
     setErrors,
-    setShowAdvanced,
     validate,
     resetForm,
     isFormValid,
@@ -124,5 +130,7 @@ export const useRegisterForm = (): UseRegisterFormReturn => {
     isPasswordValid,
     isNameValid,
     hasCondominio,
+    showAdvanced,
+    setShowAdvanced,
   };
 };

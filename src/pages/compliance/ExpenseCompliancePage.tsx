@@ -1,84 +1,46 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { formatApiError } from '../../lib/api-error-message';
 import { formatDateTimePtBr } from '../../lib/format-date-pt-br';
-import { EcondomizaApi } from '../../services';
 import { PageHeader } from '../../components/layout/PageHeader';
-
-function pickStr(o: Record<string, unknown>, ...keys: string[]): string {
-  for (const k of keys) {
-    const v = o[k];
-    if (v != null && v !== '') return String(v);
-  }
-  return '';
-}
-
-function pickNum(o: Record<string, unknown>, ...keys: string[]): number | null {
-  for (const k of keys) {
-    const v = o[k];
-    if (v == null) continue;
-    const n = typeof v === 'number' ? v : Number(v);
-    if (Number.isFinite(n)) return n;
-  }
-  return null;
-}
-
-function parseEvidenceIds(json: string | null | undefined): string[] {
-  if (!json || !json.trim()) return [];
-  try {
-    const v = JSON.parse(json) as unknown;
-    if (Array.isArray(v)) return v.map((x) => String(x)).filter(Boolean);
-  } catch {
-    /* ignore */
-  }
-  return [];
-}
+import { PageFatalErrorState, PageLoadingState } from '../../components/layout/PageLoadStates';
+import {
+  useExpenseCompliance,
+  useExpenseComplianceMutations,
+} from '../../features/conformidades/hooks/useExpenseComplianceData';
+import {
+  buildEvidenceDrafts,
+  parseDocumentIdList,
+  pickNum,
+  pickStr,
+  UUID_RE,
+} from '../../features/conformidades/lib/expense-compliance-map';
 
 const ExpenseCompliancePage: React.FC = () => {
   const { expenseId = '' } = useParams<{ expenseId: string }>();
   const navigate = useNavigate();
-  const [raw, setRaw] = useState<Record<string, unknown> | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const {
+    raw,
+    findings,
+    isInitialLoading,
+    errorMessage: queryError,
+    refetch,
+  } = useExpenseCompliance(expenseId);
+  const { reevaluate, saveEvidence, addComment, waiveFinding, isMutating } =
+    useExpenseComplianceMutations(expenseId);
+
+  const [actionError, setActionError] = useState<string | null>(null);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [evidenceDrafts, setEvidenceDrafts] = useState<Record<string, string>>({});
   const [waiveDrafts, setWaiveDrafts] = useState<Record<string, string>>({});
 
-  const load = useCallback(async () => {
-    if (!expenseId) return;
-    try {
-      const res = await EcondomizaApi.getExpenseCompliance(expenseId);
-      const d = res.data && typeof res.data === 'object' ? (res.data as Record<string, unknown>) : null;
-      setRaw(d);
-      setError(null);
-      if (d) {
-        const findings = Array.isArray(d.findings) ? d.findings : Array.isArray(d.Findings) ? d.Findings : [];
-        const nextE: Record<string, string> = {};
-        for (const f of findings) {
-          if (!f || typeof f !== 'object') continue;
-          const row = f as Record<string, unknown>;
-          const id = pickStr(row, 'id', 'Id');
-          const ej = pickStr(row, 'evidenceDocumentIdsJson', 'EvidenceDocumentIdsJson');
-          if (id) nextE[id] = parseEvidenceIds(ej).join(', ');
-        }
-        setEvidenceDrafts((prev) => ({ ...nextE, ...prev }));
-      }
-    } catch (e) {
-      setError(formatApiError(e));
-      setRaw(null);
-    }
-  }, [expenseId]);
-
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (findings.length > 0) {
+      setEvidenceDrafts((prev) => ({ ...buildEvidenceDrafts(findings), ...prev }));
+    }
+  }, [findings]);
 
-  const findings = useMemo(() => {
-    if (!raw) return [];
-    const f = raw.findings ?? raw.Findings;
-    if (!Array.isArray(f)) return [];
-    return f.filter((x) => x && typeof x === 'object') as Record<string, unknown>[];
-  }, [raw]);
+  const error = actionError ?? queryError;
 
   const score = pickNum(raw ?? {}, 'complianceScore', 'ComplianceScore');
   const outstanding = pickNum(raw ?? {}, 'outstandingCount', 'OutstandingCount');
@@ -87,79 +49,56 @@ const ExpenseCompliancePage: React.FC = () => {
   const highOpen = pickNum(raw ?? {}, 'highRiskOpenCount', 'HighRiskOpenCount');
 
   const onReevaluate = async () => {
-    if (!expenseId) return;
-    setBusy(true);
+    setActionError(null);
     try {
-      const res = await EcondomizaApi.reevaluateExpenseCompliance(expenseId);
-      const d = res.data && typeof res.data === 'object' ? (res.data as Record<string, unknown>) : null;
-      setRaw(d);
-      setError(null);
+      await reevaluate.mutateAsync();
     } catch (e) {
-      setError(formatApiError(e));
-    } finally {
-      setBusy(false);
+      setActionError(formatApiError(e));
     }
   };
 
-  const parseIdList = (s: string): string[] =>
-    s
-      .split(/[\s,;]+/)
-      .map((x) => x.trim())
-      .filter(Boolean);
-
-  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
   const onSaveEvidence = async (findingId: string) => {
-    if (!expenseId) return;
-    const rawIds = parseIdList(evidenceDrafts[findingId] ?? '');
+    const rawIds = parseDocumentIdList(evidenceDrafts[findingId] ?? '');
     const guids: string[] = [];
     for (const id of rawIds) {
-      if (uuidRe.test(id)) {
+      if (UUID_RE.test(id)) {
         guids.push(id);
       } else {
-        setError(`Identificador de documento inválido: "${id}". Use um GUID por linha ou separados por vírgula (ex.: 3fa85f64-5717-4562-b3fc-2c963f66afa6).`);
+        setActionError(
+          `Identificador de documento inválido: "${id}". Use um GUID por linha ou separados por vírgula (ex.: 3fa85f64-5717-4562-b3fc-2c963f66afa6).`
+        );
         return;
       }
     }
-    setBusy(true);
+    setActionError(null);
     try {
-      await EcondomizaApi.setExpenseComplianceEvidence(expenseId, findingId, guids);
-      setError(null);
-      await load();
+      await saveEvidence.mutateAsync({ findingId, documentIds: guids });
     } catch (e) {
-      setError(formatApiError(e));
-    } finally {
-      setBusy(false);
+      setActionError(formatApiError(e));
     }
   };
 
   const onAddComment = async (findingId: string) => {
     const body = (commentDrafts[findingId] ?? '').trim();
-    if (!body || !expenseId) return;
-    setBusy(true);
+    if (!body) return;
+    setActionError(null);
     try {
-      await EcondomizaApi.addExpenseComplianceComment(expenseId, findingId, body);
+      await addComment.mutateAsync({ findingId, body });
       setCommentDrafts((p) => ({ ...p, [findingId]: '' }));
-      await load();
     } catch (e) {
-      setError(formatApiError(e));
-    } finally {
-      setBusy(false);
+      setActionError(formatApiError(e));
     }
   };
 
   const onWaive = async (findingId: string) => {
     const reason = (waiveDrafts[findingId] ?? '').trim();
-    if (!reason || !expenseId) return;
-    setBusy(true);
+    if (!reason) return;
+    setActionError(null);
     try {
-      await EcondomizaApi.waiveExpenseComplianceFinding(expenseId, findingId, reason);
+      await waiveFinding.mutateAsync({ findingId, reason });
       setWaiveDrafts((p) => ({ ...p, [findingId]: '' }));
-      await load();
     } catch (e) {
-      setError(formatApiError(e));
-    } finally {
-      setBusy(false);
+      setActionError(formatApiError(e));
     }
   };
 
@@ -174,12 +113,28 @@ const ExpenseCompliancePage: React.FC = () => {
     );
   }
 
+  if (isInitialLoading) {
+    return (
+      <PageLoadingState
+        id="expense-compliance"
+        message="Carregando conformidade da despesa…"
+        skeletonMaxWidth={640}
+      />
+    );
+  }
+
+  if (queryError && !raw) {
+    return (
+      <PageFatalErrorState id="expense-compliance" message={queryError} onRetry={() => void refetch()} />
+    );
+  }
+
   return (
     <div id="expense-compliance">
       <PageHeader
-        eyebrow="Documentação desta compra"
-        title="Pendências e validações da despesa"
-        description="O que falta para esta compra ficar regularizada: anexos, comentários ao conselho e registo de excepções quando aplicável."
+        eyebrow="Conformidade da despesa"
+        title="Achados e validações"
+        description="Pendências de auditoria nesta despesa: evidências, comentários ao conselho e dispensa fundamentada quando aplicável."
         layout="stack"
         quickLinks={[
           { to: `/compras/${encodeURIComponent(expenseId)}`, label: 'Voltar à despesa' },
@@ -189,10 +144,20 @@ const ExpenseCompliancePage: React.FC = () => {
       {error && <div className="banner banner--error">{error}</div>}
 
       <div className="op-detail-toolbar">
-        <button type="button" className="btn-small secondary" onClick={() => void load()} disabled={busy}>
+        <button
+          type="button"
+          className="btn-small secondary"
+          onClick={() => void refetch()}
+          disabled={isMutating}
+        >
           Atualizar
         </button>
-        <button type="button" className="btn-small secondary" onClick={() => void onReevaluate()} disabled={busy}>
+        <button
+          type="button"
+          className="btn-small secondary"
+          onClick={() => void onReevaluate()}
+          disabled={isMutating}
+        >
           Reavaliar motor
         </button>
       </div>
@@ -223,7 +188,7 @@ const ExpenseCompliancePage: React.FC = () => {
         </dl>
         <p className="op-muted op-small">
           SLA de aprovação e pipeline técnico continuam visíveis na{' '}
-          <Link to={`/compras/${encodeURIComponent(expenseId)}`}>vista operacional</Link>.
+          <Link to={`/compras/${encodeURIComponent(expenseId)}`}>detalhe da despesa</Link>.
         </p>
       </section>
 
@@ -234,11 +199,7 @@ const ExpenseCompliancePage: React.FC = () => {
         const origin = pickStr(f, 'origin', 'Origin');
         const conf = pickNum(f, 'confidence', 'Confidence');
         const detail = pickStr(f, 'detailJson', 'DetailJson');
-        const comments = Array.isArray(f.comments)
-          ? f.comments
-          : Array.isArray(f.Comments)
-            ? f.Comments
-            : [];
+        const comments = Array.isArray(f.comments) ? f.comments : Array.isArray(f.Comments) ? f.Comments : [];
         const waivedReason = pickStr(f, 'waivedReason', 'WaivedReason');
         const waivedBy = pickStr(f, 'waivedByUserName', 'WaivedByUserName');
         const waivedAt = pickStr(f, 'waivedAtUtc', 'WaivedAtUtc');
@@ -247,7 +208,11 @@ const ExpenseCompliancePage: React.FC = () => {
         const updated = pickStr(f, 'updatedAtUtc', 'UpdatedAtUtc');
 
         const sevClass =
-          sev === 'CRITICAL' ? 'op-badge op-badge--error' : sev === 'HIGH' ? 'op-badge op-badge--warning' : 'op-badge op-badge--neutral';
+          sev === 'CRITICAL'
+            ? 'op-badge op-badge--error'
+            : sev === 'HIGH'
+              ? 'op-badge op-badge--warning'
+              : 'op-badge op-badge--neutral';
 
         return (
           <section key={id} className="card compliance-finding-card">
@@ -287,12 +252,12 @@ const ExpenseCompliancePage: React.FC = () => {
                   {status === 'WAIVED' ? (
                     <>
                       {waivedBy || '—'}
-                      {waivedAt && (
-                        <span className="op-muted"> · {formatDateTimePtBr(waivedAt)}</span>
-                      )}
+                      {waivedAt && <span className="op-muted"> · {formatDateTimePtBr(waivedAt)}</span>}
                     </>
                   ) : (
-                    <span className="op-muted">Definido na aprovação da despesa; override regista actor aqui.</span>
+                    <span className="op-muted">
+                      Definido na aprovação da despesa; override regista actor aqui.
+                    </span>
                   )}
                 </dd>
               </div>
@@ -312,7 +277,9 @@ const ExpenseCompliancePage: React.FC = () => {
 
             <div className="compliance-finding-block">
               <h4>Evidências (IDs de documento)</h4>
-              <p className="op-small op-muted">Informe os IDs dos documentos (GUID), separados por vírgula.</p>
+              <p className="op-small op-muted">
+                Informe os IDs dos documentos (GUID), separados por vírgula.
+              </p>
               <textarea
                 className="compliance-textarea"
                 rows={2}
@@ -320,7 +287,12 @@ const ExpenseCompliancePage: React.FC = () => {
                 onChange={(e) => setEvidenceDrafts((p) => ({ ...p, [id]: e.target.value }))}
                 placeholder="ex.: 3fa85f64-5717-4562-b3fc-2c963f66afa6, …"
               />
-              <button type="button" className="btn-small secondary" disabled={busy} onClick={() => void onSaveEvidence(id)}>
+              <button
+                type="button"
+                className="btn-small secondary"
+                disabled={isMutating}
+                onClick={() => void onSaveEvidence(id)}
+              >
                 Salvar evidências
               </button>
             </div>
@@ -350,9 +322,14 @@ const ExpenseCompliancePage: React.FC = () => {
                 rows={2}
                 value={commentDrafts[id] ?? ''}
                 onChange={(e) => setCommentDrafts((p) => ({ ...p, [id]: e.target.value }))}
-                placeholder="Nota operacional ou pedido de esclarecimento…"
+                placeholder="Nota de fiscalização ou pedido de esclarecimento…"
               />
-              <button type="button" className="btn-small secondary" disabled={busy} onClick={() => void onAddComment(id)}>
+              <button
+                type="button"
+                className="btn-small secondary"
+                disabled={isMutating}
+                onClick={() => void onAddComment(id)}
+              >
                 Adicionar comentário
               </button>
             </div>
@@ -368,7 +345,12 @@ const ExpenseCompliancePage: React.FC = () => {
                   onChange={(e) => setWaiveDrafts((p) => ({ ...p, [id]: e.target.value }))}
                   placeholder="Justificativa obrigatória para auditoria…"
                 />
-                <button type="button" className="btn-small" disabled={busy} onClick={() => void onWaive(id)}>
+                <button
+                  type="button"
+                  className="btn-small"
+                  disabled={isMutating}
+                  onClick={() => void onWaive(id)}
+                >
                   Registar exceção
                 </button>
               </div>

@@ -22,3 +22,23 @@ export function clearAllClientSession(): void {
   localStorage.removeItem(GATEWAY_TOKEN_KEYS.access);
   localStorage.removeItem(GATEWAY_TOKEN_KEYS.refresh);
 }
+
+let loginRedirectInProgress = false;
+
+/** Limpa sessão e força navegação para login (401 / refresh inválido). */
+export function forceLoginRedirect(): void {
+  if (typeof window === 'undefined') return;
+
+  const path = window.location.pathname;
+  if (path === '/login' || path === '/register' || path.startsWith('/auth')) return;
+  if (loginRedirectInProgress) return;
+
+  loginRedirectInProgress = true;
+  clearAllClientSession();
+
+  const returnTo = `${window.location.pathname}${window.location.search}`;
+  const loginUrl =
+    returnTo && returnTo !== '/' ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login';
+
+  window.location.replace(loginUrl);
+}

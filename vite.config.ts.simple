@@ -1,0 +1,16 @@
+import path from '\
+node:path\'
+import { defineConfig } from 'vite'
+import tailwindcss from '@tailwindcss/vite'
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  server: {
+    port: 5173,
+    strictPort: false,
+    proxy: {
+      '/api': { target: \http://localhost:5000\ }
+    }
+  },
+  build: { outDir: 'dist', emptyOutDir: true }
+})

@@ -2,7 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_SIMCAG_GATEWAY_URL: string;
-  readonly VITE_DEFAULT_TENANT_ID: string;
+  readonly VITE_DEV_PROXY_TARGET: string;
 }
 
 interface ImportMeta {
