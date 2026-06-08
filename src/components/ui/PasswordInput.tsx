@@ -1,4 +1,4 @@
-import React, { forwardRef, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import { cn, focusRingClass, transitionInteractiveClass } from '../../lib/cn';
 
 const INPUT_BASE = [
@@ -10,11 +10,9 @@ const INPUT_BASE = [
   transitionInteractiveClass,
 ].join(' ');
 
-const ERROR_STYLES = [
-  'border-status-error',
-  'focus:ring-status-error',
-  'focus:border-status-error',
-].join(' ');
+const ERROR_STYLES = ['border-status-error', 'focus:ring-status-error', 'focus:border-status-error'].join(
+  ' '
+);
 
 const ERROR_TEXT_STYLES = ['mt-1.5 text-sm text-status-error flex items-center gap-1'].join(' ');
 const HELPER_TEXT_STYLES = ['mt-1.5 text-sm text-text-muted'].join(' ');
@@ -42,7 +40,10 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
 
         <div className="relative">
           {icon && (
-            <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" aria-hidden="true">
+            <div
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+              aria-hidden="true"
+            >
               {icon}
             </div>
           )}
@@ -51,13 +52,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             ref={ref}
             id={uniqueId}
             type={showPassword ? 'text' : 'password'}
-            className={cn(
-              INPUT_BASE,
-              icon ? 'pl-10' : '',
-              'pr-10',
-              error && ERROR_STYLES,
-              className
-            )}
+            className={cn(INPUT_BASE, icon ? 'pl-10' : '', 'pr-10', error && ERROR_STYLES, className)}
             aria-invalid={error ? 'true' : undefined}
             aria-describedby={error ? `${uniqueId}-error` : helperText ? `${uniqueId}-helper` : undefined}
             {...props}

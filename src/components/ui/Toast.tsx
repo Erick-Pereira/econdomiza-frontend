@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { X, CheckCircle2, AlertCircle } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
