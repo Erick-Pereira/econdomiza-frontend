@@ -4,10 +4,17 @@ import {
   useNotificationPreferences,
   useNotificationPreferencesMutations,
 } from '../../features/notificacoes/hooks/useNotificationPreferences';
-import type { PreferencesFormState } from '../../features/notificacoes/lib/preferences-map';
+import {
+  validatePreferencesForm,
+  type PreferencesFormState,
+} from '../../features/notificacoes/lib/preferences-map';
+import { formatPhoneInput } from '../../features/notificacoes/lib/phone-format';
 
 export interface NotificationsPreferencesPanelProps {
   userId: string;
+  profileEmail?: string | null;
+  /** Dentro de Configurações — sem padding extra nem badge duplicado. */
+  embedded?: boolean;
 }
 
 const defaultForm: PreferencesFormState = {
@@ -23,21 +30,27 @@ const defaultForm: PreferencesFormState = {
   snoozeLocal: '',
 };
 
-/** Formulário de preferências reutilizável na central de notificações. */
-const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps> = ({ userId }) => {
-  const { formDefaults, isLoading, errorMessage: queryError, refetch } = useNotificationPreferences(userId);
+/** Formulário de preferências — estilos em `styles.css` (notif-prefs-*). */
+const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps> = ({
+  userId,
+  profileEmail,
+  embedded = false,
+}) => {
+  const {
+    formDefaults,
+    needsSetup,
+    isLoading,
+    errorMessage: queryError,
+    refetch,
+  } = useNotificationPreferences(userId, profileEmail);
   const { saveForm, clearMuteSnooze, isMutating } = useNotificationPreferencesMutations(userId);
 
   const [form, setForm] = useState<PreferencesFormState>(defaultForm);
-  const [applyMuteSnooze, setApplyMuteSnooze] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (formDefaults) {
-      setForm(formDefaults);
-      setApplyMuteSnooze(false);
-    }
+    if (formDefaults) setForm(formDefaults);
   }, [formDefaults]);
 
   const error = actionError ?? queryError;
@@ -49,11 +62,25 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
   const onSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
+
+    const validation = validatePreferencesForm(form);
+    if (!validation.ok) {
+      setActionError(validation.message);
+      setOkMsg(null);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Guardar estas preferências no servidor?\n\nOs alertas de preço passarão a usar estes canais e regras.'
+    );
+    if (!confirmed) return;
+
     setActionError(null);
     setOkMsg(null);
     try {
-      await saveForm.mutateAsync({ form, applyMuteSnooze });
-      setOkMsg('Preferências gravadas.');
+      const savedForm = await saveForm.mutateAsync({ form, applyMuteSnooze: true });
+      setForm(savedForm);
+      setOkMsg('Preferências guardadas no servidor. Os próximos alertas respeitarão estas regras.');
     } catch (err) {
       setActionError(formatApiError(err));
     }
@@ -64,9 +91,9 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
     setActionError(null);
     setOkMsg(null);
     try {
-      await clearMuteSnooze.mutateAsync(form);
-      setApplyMuteSnooze(false);
-      setOkMsg('Silêncio e snooze de preços removidos.');
+      await clearMuteSnooze.mutateAsync({ ...form, muteLocal: '', snoozeLocal: '' });
+      patchForm({ muteLocal: '', snoozeLocal: '' });
+      setOkMsg('Silêncio e snooze removidos.');
     } catch (err) {
       setActionError(formatApiError(err));
     }
@@ -77,11 +104,28 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
   }
 
   if (isLoading && !formDefaults) {
-    return <p className="op-muted">Carregando preferências…</p>;
+    return <p className="op-muted">A carregar preferências…</p>;
   }
 
   return (
-    <div className="notif-prefs-panel w-full max-w-full min-w-0 space-y-6 overflow-x-hidden">
+    <div
+      className={`notif-prefs-panel w-full max-w-full min-w-0 overflow-x-hidden${embedded ? ' notif-prefs-panel--embedded' : ''}`}
+    >
+      {!embedded && (
+        <div className="notif-prefs-status">
+          <span className={`op-badge ${needsSetup ? 'op-badge--warn' : 'op-badge--ok'}`}>
+            {needsSetup ? 'Configuração pendente' : 'Configurado'}
+          </span>
+        </div>
+      )}
+
+      {needsSetup && (
+        <div className="banner banner--warning" role="status">
+          <strong>Ainda não recebe alertas.</strong> Confirme o e-mail, active pelo menos um canal e clique em
+          «Guardar preferências».
+        </div>
+      )}
+
       {error && (
         <div className="banner banner--error" role="alert">
           {error}
@@ -89,64 +133,76 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
       )}
       {okMsg && <div className="banner banner--info">{okMsg}</div>}
 
-      <form className="notif-prefs-panel__form space-y-6" onSubmit={(ev) => void onSave(ev)}>
-        <fieldset className="notif-prefs-fieldset rounded-3xl border border-surface-border bg-surface-card p-4 shadow-macro-sm">
+      <form className="notif-prefs-panel__form" onSubmit={(ev) => void onSave(ev)}>
+        <fieldset className="notif-prefs-fieldset">
           <legend>Canais de envio</legend>
-          <p className="op-muted op-small notif-prefs-fieldset__lead max-w-4xl">
-            Escolha como quer receber avisos do sistema.
+          <p className="op-muted op-small notif-prefs-fieldset__lead">
+            Escolha como quer receber avisos quando houver alertas de preço no condomínio.
           </p>
-          <div className="notif-prefs-channels flex flex-wrap gap-3">
-            <label className="notif-prefs-toggle">
+
+          <div className="notif-prefs-channels">
+            <label className="notif-prefs-toggle notif-prefs-toggle--channel">
               <input
                 type="checkbox"
                 checked={form.emailEnabled}
                 onChange={(e) => patchForm({ emailEnabled: e.target.checked })}
               />
-              <span>
+              <span className="notif-prefs-toggle__body">
                 <strong>E-mail</strong>
-                <span className="op-muted op-small"> Recomendado para avisos importantes</span>
+                <span className="op-muted op-small"> Recomendado — avisos completos com detalhe</span>
               </span>
             </label>
-            <label className="notif-prefs-toggle">
+
+            {form.emailEnabled && (
+              <label className="op-field">
+                <span>Endereço de e-mail</span>
+                <input
+                  type="email"
+                  className="config-input"
+                  value={form.emailAddress}
+                  onChange={(e) => patchForm({ emailAddress: e.target.value })}
+                  autoComplete="email"
+                  placeholder="seu@email.com"
+                />
+              </label>
+            )}
+
+            <label className="notif-prefs-toggle notif-prefs-toggle--channel">
               <input
                 type="checkbox"
                 checked={form.smsEnabled}
                 onChange={(e) => patchForm({ smsEnabled: e.target.checked })}
               />
-              <span>
+              <span className="notif-prefs-toggle__body">
                 <strong>SMS</strong>
-                <span className="op-muted op-small"> Mensagens curtas ao telemóvel</span>
+                <span className="op-muted op-small"> Mensagens curtas no telemóvel</span>
               </span>
             </label>
-          </div>
-          <div className="notif-prefs-grid grid grid-cols-1 gap-4 md:grid-cols-2">
-            <label className="op-field">
-              <span>Endereço de e-mail</span>
-              <input
-                type="email"
-                value={form.emailAddress}
-                onChange={(e) => patchForm({ emailAddress: e.target.value })}
-                autoComplete="email"
-              />
-            </label>
-            <label className="op-field">
-              <span>Celular (SMS)</span>
-              <input
-                type="tel"
-                value={form.phoneNumber}
-                onChange={(e) => patchForm({ phoneNumber: e.target.value })}
-                autoComplete="tel"
-              />
-            </label>
+
+            {form.smsEnabled && (
+              <label className="op-field">
+                <span>Telemóvel</span>
+                <input
+                  type="tel"
+                  className="config-input"
+                  value={form.phoneNumber}
+                  onChange={(e) => patchForm({ phoneNumber: formatPhoneInput(e.target.value) })}
+                  autoComplete="tel"
+                  inputMode="tel"
+                  placeholder="+55 (11) 91234-5678"
+                />
+              </label>
+            )}
           </div>
         </fieldset>
 
-        <fieldset className="notif-prefs-fieldset rounded-3xl border border-surface-border bg-surface-card p-4 shadow-macro-sm">
+        <fieldset className="notif-prefs-fieldset">
           <legend>Alertas de preço</legend>
-          <p className="op-muted op-small notif-prefs-fieldset__lead max-w-4xl">
-            Tipos de movimento de preço que quer acompanhar.
+          <p className="op-muted op-small notif-prefs-fieldset__lead">
+            Tipos de movimento que quer acompanhar. Desmarque o que não for relevante.
           </p>
-          <div className="notif-prefs-chips-row flex flex-wrap gap-3 items-center">
+
+          <div className="notif-prefs-chips-row">
             <label className="notif-prefs-toggle notif-prefs-toggle--inline">
               <input
                 type="checkbox"
@@ -171,31 +227,35 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
               />
               <span>Tendências</span>
             </label>
-            <label className="op-field op-field--inline notif-prefs-severity min-w-[16rem]">
-              <span>Prioridade mínima</span>
-              <select
-                value={form.minimumSeverity}
-                onChange={(e) => patchForm({ minimumSeverity: e.target.value })}
-              >
-                <option value="Info">Todas (inclui informativas)</option>
-                <option value="Warning">Avisos e acima</option>
-                <option value="Critical">Só críticas</option>
-              </select>
-            </label>
           </div>
+
+          <label className="op-field notif-prefs-severity">
+            <span>Prioridade mínima</span>
+            <select
+              className="config-input"
+              value={form.minimumSeverity}
+              onChange={(e) => patchForm({ minimumSeverity: e.target.value })}
+            >
+              <option value="Info">Todas (inclui informativas)</option>
+              <option value="Warning">Avisos e acima</option>
+              <option value="Critical">Só críticas</option>
+            </select>
+            <span className="op-muted op-small">Alertas abaixo deste nível são ignorados.</span>
+          </label>
         </fieldset>
 
-        <fieldset className="notif-prefs-fieldset rounded-3xl border border-surface-border bg-surface-card p-4 shadow-macro-sm">
+        <fieldset className="notif-prefs-fieldset">
           <legend>Silêncio temporário</legend>
-          <p className="op-muted op-small notif-prefs-fieldset__lead max-w-4xl">
-            Pausar notificações até uma data. Marque «Aplicar ao gravar» para guardar estas datas; use o botão
-            abaixo para limpar.
+          <p className="op-muted op-small notif-prefs-fieldset__lead">
+            Opcional. Deixe em branco para receber alertas normalmente. Gravado ao guardar.
           </p>
-          <div className="notif-prefs-grid grid grid-cols-1 gap-4 md:grid-cols-2">
+
+          <div className="notif-prefs-grid">
             <label className="op-field">
               <span>Silêncio global até</span>
               <input
                 type="datetime-local"
+                className="config-input"
                 value={form.muteLocal}
                 onChange={(e) => patchForm({ muteLocal: e.target.value })}
               />
@@ -204,24 +264,17 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
               <span>Snooze só em alertas de preço até</span>
               <input
                 type="datetime-local"
+                className="config-input"
                 value={form.snoozeLocal}
                 onChange={(e) => patchForm({ snoozeLocal: e.target.value })}
               />
             </label>
           </div>
-          <label className="notif-prefs-toggle notif-prefs-toggle--inline mt-3">
-            <input
-              type="checkbox"
-              checked={applyMuteSnooze}
-              onChange={(e) => setApplyMuteSnooze(e.target.checked)}
-            />
-            <span>Aplicar estas datas ao gravar</span>
-          </label>
         </fieldset>
 
         <div className="notif-prefs-actions flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <button type="submit" className="btn-primary" disabled={isMutating}>
-            {isMutating ? 'Salvando…' : 'Salvar preferências'}
+            {isMutating ? 'A guardar…' : 'Guardar preferências'}
           </button>
           <button
             type="button"
@@ -229,7 +282,7 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
             disabled={isMutating}
             onClick={() => void onClearMuteSnooze()}
           >
-            Limpar silêncio / snooze
+            Limpar silêncio
           </button>
           <button
             type="button"

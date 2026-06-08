@@ -7,7 +7,7 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { PageFatalErrorState, PageLoadingState } from '../components/layout/PageLoadStates';
 import { Card, Button, Badge } from '../components/ui';
 import { Modal } from '../components/ui/Modal';
-import { useToast } from '../components/ui/Toast';
+import { useToast } from '../components/ui/useToast';
 import { formatBrlInput, parseBrlInput } from '../lib/currency-br-input';
 import {
   humanizeApprovalPt,
@@ -183,11 +183,12 @@ const ExpenseOperationalDetailPage: React.FC = () => {
   }, [load]);
 
   // Parseamento de dados - corrigido para evitar erro de sintaxe com ?? e &&
-  const governanceRaw = raw?.governance ?? raw?.Governance;
-  const gov =
-    typeof governanceRaw === 'object' && governanceRaw !== null
+  const gov = useMemo(() => {
+    const governanceRaw = raw?.governance ?? raw?.Governance;
+    return typeof governanceRaw === 'object' && governanceRaw !== null
       ? (governanceRaw as Record<string, unknown>)
       : {};
+  }, [raw]);
 
   const allowedActionsRaw = gov?.allowedActions ?? gov?.AllowedActions;
   const allowed =

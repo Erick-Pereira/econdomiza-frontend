@@ -27,6 +27,28 @@ function unwrapNestedApiSuccessPayload(payload: unknown): unknown {
 
 export type { DashboardSummaryResult };
 
+/** Resposta de `POST /api/ingestion/upload` (campos camelCase após unwrap gateway). */
+export interface UploadDocumentResponse {
+  success?: boolean;
+  deduplicated?: boolean;
+  message?: string;
+  documentId?: string;
+  publishedDataIngestedEvent?: boolean;
+  processingNote?: string | null;
+}
+
+export function extractUploadPipelineWarning(data: unknown): string | null {
+  if (!data || typeof data !== 'object') return null;
+  const row = data as Record<string, unknown>;
+  const note = row.processingNote ?? row.ProcessingNote;
+  const published = row.publishedDataIngestedEvent ?? row.PublishedDataIngestedEvent;
+  if (typeof note === 'string' && note.trim()) return note.trim();
+  if (published === false) {
+    return 'O documento foi recebido, mas o evento de processamento não foi publicado. A despesa pode não aparecer na lista.';
+  }
+  return null;
+}
+
 /**
  * Cliente HTTP do gateway SIMC-AG (substitui public/api.js no bundle Vite).
  * Base: import.meta.env.VITE_SIMCAG_GATEWAY_URL ou window.SIMCAG_GATEWAY (runtime) ou origem atual.
@@ -232,11 +254,7 @@ const EcondomizaApi = {
   lookupCondominios(q: string) {
     const term = q != null && String(q).trim() !== '' ? String(q).trim() : '';
     const qs = term ? `?q=${encodeURIComponent(term)}` : '';
-    console.log('[EcondomizaApi] Chamando /api/condominios/lookup com termo:', term);
-    return this.request(`/api/condominios/lookup${qs}`).then((res) => {
-      console.log('[EcondomizaApi] Resposta lookupCondominios:', res.data);
-      return res;
-    });
+    return this.request(`/api/condominios/lookup${qs}`);
   },
 
   async register(params: {
@@ -491,49 +509,35 @@ const EcondomizaApi = {
 
   /**
    * Upload alinhado a `DocumentUploadForm` no ingestion-service (`file`, `source`, `origin`, `tenantId`).
-   * Campos extra (ex.: `documentType`) não existem no contrato — eram ignorados, mas podiam confundir proxies.
-   * Se o downstream responder 404/405 em `/api/ingestion/upload`, tenta `/ingestion/upload` (mesmo controller).
    */
   async uploadDocument(
     file: File,
     options: { documentType?: string; source?: string; origin?: string; tenantId?: string } = {}
-  ) {
-    const buildForm = async (): Promise<FormData> => {
-      const form = new FormData();
-      form.append('file', file, file.name);
-      form.append('source', options.source ?? 'frontend');
-      const origin = options.origin ?? options.documentType ?? '';
-      if (origin) form.append('origin', origin);
+  ): Promise<{ data: UploadDocumentResponse }> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('source', options.source ?? 'frontend');
+    const origin = options.origin ?? options.documentType ?? '';
+    if (origin) form.append('origin', origin);
 
-      let tenantId = options.tenantId?.trim();
-      if (!tenantId) {
-        try {
-          const pr = await this.profile();
-          const p = pr.data as Record<string, unknown>;
-          const tid = p.tenantId ?? p.TenantId;
-          if (tid != null && String(tid).trim() !== '') tenantId = String(tid);
-        } catch {
-          /* sem perfil — tenant opcional no formulário */
-        }
-      }
-      if (tenantId) form.append('tenantId', tenantId);
-
-      return form;
-    };
-
-    const paths = ['/api/ingestion/upload', '/ingestion/upload'];
-    let lastErr: unknown;
-    for (const path of paths) {
+    let tenantId = options.tenantId?.trim();
+    if (!tenantId) {
       try {
-        const body = await buildForm();
-        return await this.request(path, { method: 'POST', body, isMultipart: true });
-      } catch (e) {
-        lastErr = e;
-        const st = (e as { status?: number })?.status;
-        if (st !== 404 && st !== 405) throw e;
+        const pr = await this.profile();
+        const p = pr.data as Record<string, unknown>;
+        const tid = p.tenantId ?? p.TenantId;
+        if (tid != null && String(tid).trim() !== '') tenantId = String(tid);
+      } catch {
+        /* sem perfil — tenant opcional no formulário */
       }
     }
-    throw lastErr;
+    if (tenantId) form.append('tenantId', tenantId);
+
+    return this.request<UploadDocumentResponse>('/api/ingestion/upload', {
+      method: 'POST',
+      body: form,
+      isMultipart: true,
+    });
   },
 
   listAlerts(params: { page?: number; pageSize?: number; type?: string | null } = {}) {

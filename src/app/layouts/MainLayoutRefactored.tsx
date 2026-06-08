@@ -12,6 +12,7 @@ import { getNavItemsForRole } from '../nav-items';
 import { TENANT_ROLE_LABELS, isTenantRole } from '../../domain/auth-roles';
 import { hasRole } from '../../lib/permissions/rbac';
 import { PRODUCT_COPY } from '../../lib/product-copy';
+import { UserInitials } from '../../lib/user-initials';
 import './MainLayoutRefactored.scss';
 
 export function MainLayoutRefactored() {
@@ -118,7 +119,7 @@ export function MainLayoutRefactored() {
             <div className="mt-auto border-t border-white/20 p-4" role="status" aria-live="polite">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-primary-light to-brand-accent text-sm font-semibold text-brand-primary ring-2 ring-white/30">
-                  {initials(profile.name || profile.email)}
+                  <UserInitials nameOrEmail={profile.name || profile.email} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-white">{profile.name || profile.email}</p>
@@ -158,7 +159,7 @@ export function MainLayoutRefactored() {
             {profile && (
               <div className="hidden items-center gap-3 md:flex">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand-primary-light to-brand-accent text-xs font-semibold text-brand-primary ring-1 ring-surface-border">
-                  {initials(profile.name || profile.email)}
+                  <UserInitials nameOrEmail={profile.name || profile.email} />
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-[var(--text-main)]">
@@ -180,24 +181,5 @@ export function MainLayoutRefactored() {
         </main>
       </div>
     </>
-  );
-}
-
-export function initials(nameOrEmail: string) {
-  const parts = nameOrEmail.trim().split(/\s+/);
-  if (parts.length >= 2) {
-    return (
-      <span className="font-semibold tracking-wider">
-        {parts[0]!.charAt(0).toUpperCase()}
-        {parts[parts.length - 1]!.charAt(0).toUpperCase()}
-      </span>
-    );
-  }
-  const name = parts[0] ?? '';
-  return (
-    <span className="font-semibold tracking-wider">
-      {name.charAt(0).toUpperCase()}
-      {name.length > 1 ? name.charAt(1).toUpperCase() : ''}
-    </span>
   );
 }

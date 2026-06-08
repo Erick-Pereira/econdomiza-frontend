@@ -8,6 +8,7 @@ import SidebarNav from '../../components/layout/SidebarNav';
 import { getNavItemsForRole } from '../nav-items';
 import { TENANT_ROLE_LABELS, isTenantRole } from '../../domain/auth-roles';
 import { PRODUCT_COPY } from '../../lib/product-copy';
+import { UserInitials } from '../../lib/user-initials';
 import './DashboardLayout.scss';
 
 interface DashboardLayoutProps {
@@ -161,7 +162,10 @@ export function DashboardLayout({ children, pageTitle }: DashboardLayoutProps) {
                   whileHover={{ scale: 1.1 }}
                   className="aspect-square h-12 w-12 shrink-0 rounded-full bg-gradient-to-br from-cyan-400 via-purple-500 to-pink-500 font-bold text-base text-white shadow-lg flex items-center justify-center ring-2 ring-white/30"
                 >
-                  {initials(profile.name || profile.email)}
+                  <UserInitials
+                    nameOrEmail={profile.name || profile.email}
+                    className="font-bold tracking-wider"
+                  />
                 </motion.div>
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-sm font-semibold text-white drop-shadow-md">
@@ -199,7 +203,10 @@ export function DashboardLayout({ children, pageTitle }: DashboardLayoutProps) {
                 className="pl-4 border-l border-white/20 flex items-center gap-3 bg-white/5 rounded-xl px-4 py-2"
               >
                 <div className="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-cyan-400 via-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold text-sm ring-1 ring-white/30 shadow-sm">
-                  {initials(profile?.name || profile?.email || '')}
+                  <UserInitials
+                    nameOrEmail={profile?.name || profile?.email || ''}
+                    className="font-bold tracking-wider"
+                  />
                 </div>
                 <div className="flex flex-col min-w-0">
                   <span className="text-sm font-semibold text-white drop-shadow-sm truncate">
@@ -219,15 +226,5 @@ export function DashboardLayout({ children, pageTitle }: DashboardLayoutProps) {
         </main>
       </div>
     </>
-  );
-}
-
-export function initials(nameOrEmail: string) {
-  const name = nameOrEmail.split(' ')[0];
-  return (
-    <span className="font-bold tracking-wider">
-      {name?.charAt(0).toUpperCase()}
-      {name?.length > 1 ? name.charAt(1).toUpperCase() : ''}
-    </span>
   );
 }

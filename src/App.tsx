@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ErrorProvider } from './utils/global-error-handler';
-import { ToastProvider } from './components/ui/Toast';
+import { ToastProvider } from './components/ui/ToastProvider';
 import { LoginForm } from './features/auth/components/LoginForm';
 import { RegisterForm } from './features/auth/components/RegisterForm';
 import { MainLayoutRefactored } from './app/layouts/MainLayoutRefactored';

@@ -108,14 +108,19 @@ export function canManageAlertas(role: string | undefined): boolean {
   return hasRole(role, 'ADMIN');
 }
 
-/** Pode ver Notificações (operação Administradora). */
+/** Pode ver Notificações (central operacional — Administradora). */
 export function canViewNotificacoes(role: string | undefined): boolean {
   return hasRole(role, 'ADMIN');
 }
 
-/** Pode gerir Notificações. */
+/** Pode gerir Notificações operacionais (reenvio, envio manual). */
 export function canManageNotificacoes(role: string | undefined): boolean {
   return hasRole(role, 'ADMIN');
+}
+
+/** Pode configurar preferências de notificação (canais, alertas, mute/snooze). */
+export function canConfigureNotificationPreferences(role: string | undefined): boolean {
+  return hasRole(role, 'ADMIN', 'SINDICO', 'CONSELHO');
 }
 
 /** Pode ver Insights / resumo IA da auditoria (operacao Administradora). */

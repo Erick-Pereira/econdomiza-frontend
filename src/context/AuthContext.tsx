@@ -152,7 +152,7 @@ export const AuthProvider: React.FC<AuthSessionProviderProps> = ({
     } finally {
       setIsRefreshing(false);
     }
-  }, [tokens, scheduleRefresh, handleLogout]);
+  }, [tokens, scheduleRefresh]);
 
   useEffect(() => {
     handleRefreshTokenRef.current = handleRefreshToken;

@@ -28,19 +28,6 @@ export function CondominioLookupModal({
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | undefined>(currentTenantId);
 
-  useEffect(() => {
-    if (open) {
-      setSelectedId(currentTenantId);
-      setSearchTerm('');
-      setError(null);
-      // Carregar todos os condomínios ao abrir o modal
-      loadAllCondominios();
-      const t = window.setTimeout(() => document.getElementById(searchInputId)?.focus(), 50);
-      return () => window.clearTimeout(t);
-    }
-    return undefined;
-  }, [open, currentTenantId]);
-
   const loadAllCondominios = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -60,6 +47,19 @@ export function CondominioLookupModal({
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (open) {
+      setSelectedId(currentTenantId);
+      setSearchTerm('');
+      setError(null);
+      // Carregar todos os condomínios ao abrir o modal
+      loadAllCondominios();
+      const t = window.setTimeout(() => document.getElementById(searchInputId)?.focus(), 50);
+      return () => window.clearTimeout(t);
+    }
+    return undefined;
+  }, [open, currentTenantId, loadAllCondominios]);
 
   useEffect(() => {
     if (!open) return;

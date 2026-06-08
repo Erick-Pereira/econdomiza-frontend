@@ -1,3 +1,5 @@
+import { formatPhoneFromApi, normalizePhoneForApi } from './phone-format';
+
 export function toDatetimeLocalValue(iso: string | null | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -36,11 +38,12 @@ export type PreferencesFormState = {
 };
 
 export function prefsToFormState(p: Record<string, unknown>): PreferencesFormState {
+  const phoneRaw = String(p.phoneNumber ?? p.PhoneNumber ?? '');
   return {
     emailEnabled: Boolean(p.emailEnabled ?? p.EmailEnabled ?? true),
     smsEnabled: Boolean(p.smsEnabled ?? p.SmsEnabled ?? false),
     emailAddress: String(p.emailAddress ?? p.EmailAddress ?? ''),
-    phoneNumber: String(p.phoneNumber ?? p.PhoneNumber ?? ''),
+    phoneNumber: formatPhoneFromApi(phoneRaw),
     alertDrop: Boolean(p.alertDropEnabled ?? p.AlertDropEnabled ?? true),
     alertRise: Boolean(p.alertRiseEnabled ?? p.AlertRiseEnabled ?? true),
     alertTrend: Boolean(p.alertTrendEnabled ?? p.AlertTrendEnabled ?? true),
@@ -50,6 +53,42 @@ export function prefsToFormState(p: Record<string, unknown>): PreferencesFormSta
       String(p.snoozePriceAlertsUntilUtc ?? p.SnoozePriceAlertsUntilUtc ?? '') || undefined
     ),
   };
+}
+
+/** Utilizador ainda não gravou contactos — sem isto o notification-service não envia. */
+export function isPreferencesUnset(raw: unknown): boolean {
+  const p = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const hasEmail = String(p.emailAddress ?? p.EmailAddress ?? '').trim().length > 0;
+  const hasPhone = String(p.phoneNumber ?? p.PhoneNumber ?? '').trim().length > 0;
+  return !hasEmail && !hasPhone;
+}
+
+export type PreferencesValidationResult = { ok: true } | { ok: false; message: string };
+
+/** Validação client-side alinhada às regras do notification-service. */
+export function validatePreferencesForm(form: PreferencesFormState): PreferencesValidationResult {
+  if (form.emailEnabled && !form.emailAddress.trim()) {
+    return { ok: false, message: 'Indique o e-mail ou desactive o canal de e-mail.' };
+  }
+  if (form.smsEnabled && !form.phoneNumber.trim()) {
+    return { ok: false, message: 'Indique o telemóvel ou desactive o canal SMS.' };
+  }
+  if (!form.emailEnabled && !form.smsEnabled) {
+    return { ok: false, message: 'Active pelo menos um canal (e-mail ou SMS) para receber alertas.' };
+  }
+  if (!form.alertDrop && !form.alertRise && !form.alertTrend) {
+    return { ok: false, message: 'Seleccione pelo menos um tipo de alerta de preço.' };
+  }
+  return { ok: true };
+}
+
+export function mergeProfileEmailIntoForm(
+  form: PreferencesFormState,
+  profileEmail?: string | null
+): PreferencesFormState {
+  const email = profileEmail?.trim() ?? '';
+  if (!email || form.emailAddress.trim()) return form;
+  return { ...form, emailAddress: email, emailEnabled: true };
 }
 
 export function formStateToPayload(
@@ -62,16 +101,14 @@ export function formStateToPayload(
     emailEnabled: form.emailEnabled,
     smsEnabled: form.smsEnabled,
     emailAddress: form.emailAddress.trim() || null,
-    phoneNumber: form.phoneNumber.trim() || null,
+    phoneNumber: form.phoneNumber.trim() ? normalizePhoneForApi(form.phoneNumber) : null,
     alertDropEnabled: form.alertDrop,
     alertRiseEnabled: form.alertRise,
     alertTrendEnabled: form.alertTrend,
     minimumSeverity: form.minimumSeverity.trim() || 'Info',
-    applyMuteSnooze: options.applyMuteSnooze,
+    applyMuteSnooze: true,
+    muteAllUntilUtc: options.muteIso ?? null,
+    snoozePriceAlertsUntilUtc: options.snoozeIso ?? null,
   };
-  if (options.applyMuteSnooze) {
-    body.muteAllUntilUtc = options.muteIso ?? null;
-    body.snoozePriceAlertsUntilUtc = options.snoozeIso ?? null;
-  }
   return body;
 }

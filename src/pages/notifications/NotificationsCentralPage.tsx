@@ -4,6 +4,8 @@ import { useAuthSession } from '../../context/AuthSessionContext';
 import { formatApiError } from '../../lib/api-error-message';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { PageFatalErrorState, PageLoadingState } from '../../components/layout/PageLoadStates';
+import { Badge, Button } from '../../components/ui';
+import { cn } from '../../lib/cn';
 import {
   useNotificationsDashboard,
   useNotificationsDeliveries,
@@ -16,8 +18,6 @@ import {
   pickNum,
   pickStr,
   severityPt,
-  slugSeverity,
-  slugStatus,
   sortDeliveriesRecent,
   statusPt,
 } from '../../features/notificacoes/lib/notifications-model';
@@ -25,6 +25,125 @@ import type { DeliveryListParams } from '../../features/notificacoes/query-keys'
 import NotificationsPreferencesPanel from './NotificationsPreferencesPanel';
 
 type Visao = 'recentes' | 'historico' | 'preferencias' | 'canais';
+
+const STATUS_BADGE: Record<string, 'warning' | 'ok' | 'error' | 'neutral'> = {
+  Pending: 'warning',
+  Sent: 'ok',
+  Failed: 'error',
+  Suppressed: 'neutral',
+  Filtered: 'neutral',
+};
+
+function KpiCard({
+  label,
+  value,
+  hint,
+  tone = 'default',
+  onClick,
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+  tone?: 'default' | 'pending' | 'ok' | 'risk' | 'muted';
+  onClick: () => void;
+}) {
+  const toneClass =
+    tone === 'pending'
+      ? 'border-status-warning/40 bg-status-warning/5'
+      : tone === 'ok'
+        ? 'border-status-success/40 bg-status-success/5'
+        : tone === 'risk'
+          ? 'border-status-error/40 bg-status-error/5'
+          : tone === 'muted'
+            ? 'border-surface-border bg-surface-muted/50'
+            : 'border-surface-border bg-surface-card';
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded-xl border p-4 text-left shadow-macro-sm transition hover:border-brand-primary/40 hover:shadow-macro-md',
+        toneClass
+      )}
+    >
+      <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">{label}</span>
+      <span className="mt-1 block text-2xl font-bold text-text-main">{value}</span>
+      {hint ? <span className="mt-1 block text-xs text-text-muted">{hint}</span> : null}
+    </button>
+  );
+}
+
+function DeliveryCard({
+  row,
+  actionId,
+  onRetry,
+  onFilterStatus,
+  showCorrelation,
+}: {
+  row: Record<string, unknown>;
+  actionId: string | null;
+  onRetry: (id: string) => void;
+  onFilterStatus?: (status: string) => void;
+  showCorrelation?: boolean;
+}) {
+  const id = pickStr(row, 'id', 'Id');
+  const st = pickStr(row, 'status', 'Status');
+  const sev = pickStr(row, 'severity', 'Severity');
+  const pr = deliveryPriority(row);
+  const canRetry = st === 'Failed' && id !== '—';
+  const sum = pickStr(row, 'payloadSummary', 'PayloadSummary');
+  const channel = pickStr(row, 'channel', 'Channel');
+  const opLink = pickStr(row, 'operationalLink', 'OperationalLink');
+
+  return (
+    <li
+      className={cn(
+        'space-y-3 px-5 py-4',
+        pr === 'critico' && 'bg-status-error/5',
+        pr === 'atencao' && 'bg-status-warning/5'
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={STATUS_BADGE[st] ?? 'neutral'}>{statusPt(st)}</Badge>
+        <Badge variant={sev.toLowerCase().includes('crit') ? 'error' : 'neutral'}>{severityPt(sev)}</Badge>
+        <span className="text-xs font-medium uppercase tracking-wide text-text-muted">{channel}</span>
+      </div>
+      {showCorrelation && (
+        <p className="font-mono text-xs text-text-muted">{pickStr(row, 'correlationId', 'CorrelationId')}</p>
+      )}
+      <p className="text-sm text-text-main">{sum.length > 200 ? `${sum.slice(0, 200)}…` : sum}</p>
+      <div className="flex flex-col gap-2 text-sm text-text-muted sm:flex-row sm:items-center sm:justify-between">
+        <span>{pickStr(row, 'createdAt', 'CreatedAt')}</span>
+        {pickNum(row, 'retryCount', 'RetryCount') > 0 && (
+          <span>Reenvios: {pickNum(row, 'retryCount', 'RetryCount')}</span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {canRetry ? (
+          <Button type="button" size="sm" disabled={actionId === id} onClick={() => onRetry(id)}>
+            {actionId === id ? 'A reenviar…' : 'Tentar de novo'}
+          </Button>
+        ) : null}
+        {opLink !== '—' && (
+          <a
+            className="inline-flex items-center rounded-lg border border-surface-border bg-surface-background px-3 py-1.5 text-sm font-medium text-text-main shadow-atomic transition hover:bg-surface-muted"
+            href={opLink}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Abrir contexto
+          </a>
+        )}
+        {onFilterStatus ? (
+          <Button type="button" size="sm" variant="outline" onClick={() => onFilterStatus(st)}>
+            Ver no histórico
+          </Button>
+        ) : null}
+      </div>
+    </li>
+  );
+}
 
 const NotificationsCentralPage: React.FC = () => {
   const { profile } = useAuthSession();
@@ -156,7 +275,7 @@ const NotificationsCentralPage: React.FC = () => {
   }
 
   return (
-    <div className="notif-hub w-full max-w-full min-w-0 space-y-8 overflow-x-hidden" id="notif-central">
+    <div className="page w-full max-w-full min-w-0 space-y-8 overflow-x-hidden" id="notif-central">
       <PageHeader
         eyebrow="Alertas e auditoria"
         title="Central de notificações"
@@ -164,219 +283,161 @@ const NotificationsCentralPage: React.FC = () => {
         layout="stack"
         quickLinks={[{ to: '/alertas', label: 'Alertas do mercado' }]}
         toolbar={
-          <button type="button" className="btn-small secondary" onClick={() => void refetchAll()}>
+          <Button type="button" variant="secondary" size="sm" onClick={() => void refetchAll()}>
             Atualizar
-          </button>
+          </Button>
         }
       />
 
       {bannerError && (
-        <div className="banner banner--error" role="alert">
+        <div
+          className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-text-main"
+          role="alert"
+        >
           {bannerError}
         </div>
       )}
 
-      {!userId && <div className="banner banner--error">Faça login para ver notificações.</div>}
+      {!userId && (
+        <div className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-text-main">
+          Faça login para ver notificações.
+        </div>
+      )}
 
       {userId && d.failed > 0 && visao === 'recentes' && (
-        <div className="obligation-hub__alert obligation-hub__alert--error" role="status">
+        <div
+          className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-text-main"
+          role="status"
+        >
           <strong>{d.failed}</strong> envio(s) em falha — reveja em «Histórico» com filtro «Falhou» ou tente
           reenviar cada item.
         </div>
       )}
 
       {userId && criticoCount > 0 && visao === 'recentes' && (
-        <div className="obligation-hub__alert obligation-hub__alert--warning" role="status">
-          {criticoCount} notificação(ões) nesta lista com prioridade alta ou falha — destacadas a vermelho.
+        <div
+          className="rounded-xl border border-status-warning/30 bg-status-warning/10 px-4 py-3 text-sm text-text-main"
+          role="status"
+        >
+          {criticoCount} notificação(ões) nesta lista com prioridade alta ou falha.
         </div>
       )}
 
       <div
-        className="notif-hub__kpis grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
         role="group"
         aria-label="Resumo de entregas"
       >
-        <button
-          type="button"
-          className="notif-kpi notif-kpi--clickable"
+        <KpiCard
+          label="Total"
+          value={d.total}
+          hint="Histórico completo"
           onClick={() => setHistoricoFiltros({ estado: '', canal: '', pagina: 1 })}
-        >
-          <span className="notif-kpi__label">Total</span>
-          <span className="notif-kpi__value">{d.total}</span>
-          <span className="notif-kpi__hint">Histórico completo</span>
-        </button>
-        <button
-          type="button"
-          className="notif-kpi notif-kpi--pendente notif-kpi--clickable"
+        />
+        <KpiCard
+          label="Pendentes"
+          value={d.pending}
+          tone="pending"
           onClick={() => setHistoricoFiltros({ estado: 'Pending', canal: '', pagina: 1 })}
-        >
-          <span className="notif-kpi__label">Pendentes</span>
-          <span className="notif-kpi__value">{d.pending}</span>
-        </button>
-        <button
-          type="button"
-          className="notif-kpi notif-kpi--ok notif-kpi--clickable"
+        />
+        <KpiCard
+          label="Enviadas"
+          value={d.sent}
+          tone="ok"
           onClick={() => setHistoricoFiltros({ estado: 'Sent', canal: '', pagina: 1 })}
-        >
-          <span className="notif-kpi__label">Enviadas</span>
-          <span className="notif-kpi__value">{d.sent}</span>
-        </button>
-        <button
-          type="button"
-          className="notif-kpi notif-kpi--risk notif-kpi--clickable"
+        />
+        <KpiCard
+          label="Falhas"
+          value={d.failed}
+          tone="risk"
           onClick={() => setHistoricoFiltros({ estado: 'Failed', canal: '', pagina: 1 })}
-        >
-          <span className="notif-kpi__label">Falhas</span>
-          <span className="notif-kpi__value">{d.failed}</span>
-        </button>
-        <button
-          type="button"
-          className="notif-kpi notif-kpi--muted notif-kpi--clickable"
+        />
+        <KpiCard
+          label="Suprimidas"
+          value={d.suppressed}
+          tone="muted"
           onClick={() => setHistoricoFiltros({ estado: 'Suppressed', canal: '', pagina: 1 })}
-        >
-          <span className="notif-kpi__label">Suprimidas</span>
-          <span className="notif-kpi__value">{d.suppressed}</span>
-        </button>
-        <button
-          type="button"
-          className="notif-kpi notif-kpi--muted notif-kpi--clickable"
+        />
+        <KpiCard
+          label="Filtradas"
+          value={d.filtered}
+          tone="muted"
           onClick={() => setHistoricoFiltros({ estado: 'Filtered', canal: '', pagina: 1 })}
-        >
-          <span className="notif-kpi__label">Filtradas</span>
-          <span className="notif-kpi__value">{d.filtered}</span>
-        </button>
+        />
       </div>
 
       <div
-        className="obligation-segment notif-hub__segment flex flex-wrap gap-2 overflow-x-auto rounded-xl border border-surface-border bg-surface-card p-2 shadow-sm"
+        className="flex flex-wrap gap-2 rounded-xl border border-surface-border bg-surface-card p-2 shadow-macro-sm"
         role="tablist"
         aria-label="Seções"
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={visao === 'recentes'}
-          className={visao === 'recentes' ? 'is-active' : undefined}
-          onClick={() => setVisao('recentes')}
-        >
-          Recentes
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={visao === 'historico'}
-          className={visao === 'historico' ? 'is-active' : undefined}
-          onClick={() => setVisao('historico')}
-        >
-          Histórico
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={visao === 'preferencias'}
-          className={visao === 'preferencias' ? 'is-active' : undefined}
-          onClick={() => setVisao('preferencias')}
-        >
-          Preferências
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={visao === 'canais'}
-          className={visao === 'canais' ? 'is-active' : undefined}
-          onClick={() => setVisao('canais')}
-        >
-          Canais e modelos
-        </button>
+        {(
+          [
+            ['recentes', 'Recentes'],
+            ['historico', 'Histórico'],
+            ['preferencias', 'Preferências'],
+            ['canais', 'Canais e modelos'],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={visao === key}
+            className={cn(
+              'rounded-lg px-4 py-2 text-sm font-medium transition',
+              visao === key
+                ? 'bg-brand-primary text-white shadow-macro-sm'
+                : 'text-text-muted hover:bg-surface-muted'
+            )}
+            onClick={() => setVisao(key)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {visao === 'recentes' && (
-        <section className="notif-hub__section" aria-label="Notificações recentes">
-          <h2 className="obligation-checklist__title">Últimas entregas</h2>
-          <p className="op-muted op-small" style={{ marginTop: 0 }}>
-            Ordenadas por urgência (falhas e pendentes primeiro). Para mais linhas ou filtros use «Histórico».
-          </p>
+        <section
+          className="rounded-xl border border-surface-border bg-surface-card shadow-macro-sm"
+          aria-label="Notificações recentes"
+        >
+          <header className="border-b border-surface-border px-5 py-4">
+            <h2 className="text-base font-semibold text-text-main">Últimas entregas</h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Ordenadas por urgência (falhas e pendentes primeiro). Para mais linhas ou filtros use
+              «Histórico».
+            </p>
+          </header>
           {delLoading && !rawPage ? (
-            <p className="op-muted">Carregando…</p>
+            <p className="px-5 py-8 text-sm text-text-muted">Carregando…</p>
           ) : displayRows.length === 0 ? (
-            <p className="empty-state">Sem notificações nesta vista.</p>
+            <p className="px-5 py-12 text-center text-sm text-text-muted">Sem notificações nesta vista.</p>
           ) : (
-            <ul className="notif-delivery-list">
-              {displayRows.map((r) => {
-                const id = pickStr(r, 'id', 'Id');
-                const st = pickStr(r, 'status', 'Status');
-                const sev = pickStr(r, 'severity', 'Severity');
-                const pr = deliveryPriority(r);
-                const canRetry = st === 'Failed' && id !== '—';
-                const sum = pickStr(r, 'payloadSummary', 'PayloadSummary');
-                const channel = pickStr(r, 'channel', 'Channel');
-                return (
-                  <li key={id} className={`notif-delivery-card notif-delivery-card--${pr}`}>
-                    <div className="notif-delivery-card__head">
-                      <span className={`notif-pill notif-pill--status notif-pill--st-${slugStatus(st)}`}>
-                        {statusPt(st)}
-                      </span>
-                      <span className={`notif-pill notif-pill--sev notif-pill--sev-${slugSeverity(sev)}`}>
-                        {severityPt(sev)}
-                      </span>
-                      <span className="notif-delivery-card__channel">{channel}</span>
-                    </div>
-                    <p className="notif-delivery-card__summary">
-                      {sum.length > 160 ? `${sum.slice(0, 160)}…` : sum}
-                    </p>
-                    <div className="notif-delivery-card__meta flex flex-col gap-2 text-sm text-text-muted sm:flex-row sm:items-center sm:justify-between">
-                      <span>{pickStr(r, 'createdAt', 'CreatedAt')}</span>
-                      {pickNum(r, 'retryCount', 'RetryCount') > 0 && (
-                        <span className="op-muted op-small">
-                          Reenvios: {pickNum(r, 'retryCount', 'RetryCount')}
-                        </span>
-                      )}
-                    </div>
-                    <div className="notif-delivery-card__actions flex flex-wrap gap-2">
-                      {canRetry ? (
-                        <button
-                          type="button"
-                          className="btn-small"
-                          disabled={actionId === id}
-                          onClick={() => void onRetry(id)}
-                        >
-                          {actionId === id ? 'A reenviar…' : 'Tentar de novo'}
-                        </button>
-                      ) : null}
-                      {pickStr(r, 'operationalLink', 'OperationalLink') !== '—' && (
-                        <a
-                          className="btn-small secondary"
-                          href={pickStr(r, 'operationalLink', 'OperationalLink')}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Abrir contexto
-                        </a>
-                      )}
-                      <button
-                        type="button"
-                        className="btn-small secondary"
-                        onClick={() => setHistoricoFiltros({ estado: st, pagina: 1 })}
-                      >
-                        Ver no histórico
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
+            <ul className="divide-y divide-surface-border" role="list">
+              {displayRows.map((r) => (
+                <DeliveryCard
+                  key={pickStr(r, 'id', 'Id')}
+                  row={r}
+                  actionId={actionId}
+                  onRetry={(id) => void onRetry(id)}
+                  onFilterStatus={(st) => setHistoricoFiltros({ estado: st, pagina: 1 })}
+                />
+              ))}
             </ul>
           )}
         </section>
       )}
 
       {visao === 'historico' && (
-        <section className="notif-hub__section" aria-label="Histórico de entregas">
-          <h2 className="obligation-checklist__title">Histórico e filtros</h2>
-          <div className="card notif-hub__filters rounded-3xl border border-surface-border bg-surface-card p-4 shadow-macro-sm">
-            <div className="notif-filter-row grid gap-4 md:grid-cols-[minmax(220px,320px)_minmax(220px,1fr)] xl:grid-cols-[minmax(220px,320px)_minmax(220px,360px)_auto]">
-              <label className="op-field op-field--inline">
-                <span>Estado</span>
+        <section className="space-y-4" aria-label="Histórico de entregas">
+          <div className="rounded-xl border border-surface-border bg-surface-card p-4 shadow-macro-sm">
+            <h2 className="text-base font-semibold text-text-main">Histórico e filtros</h2>
+            <div className="mt-4 grid gap-4 md:grid-cols-[minmax(200px,280px)_minmax(200px,1fr)_auto_auto] md:items-end">
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium text-text-main">Estado</span>
                 <select
+                  className="rounded-lg border border-surface-border bg-surface-background px-3 py-2 text-sm"
                   value={estadoFiltro}
                   onChange={(e) => setHistoricoFiltros({ estado: e.target.value, pagina: 1 })}
                 >
@@ -388,200 +449,191 @@ const NotificationsCentralPage: React.FC = () => {
                   <option value="Filtered">Filtrada</option>
                 </select>
               </label>
-              <label className="op-field op-field--inline notif-filter-canal">
-                <span>Canal</span>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium text-text-main">Canal</span>
                 <input
                   type="search"
+                  className="rounded-lg border border-surface-border bg-surface-background px-3 py-2 text-sm"
                   placeholder="email, sms…"
                   value={canalDraft}
                   onChange={(e) => setCanalDraft(e.target.value)}
                 />
               </label>
-              <button
+              <Button
                 type="button"
-                className="btn-small"
+                size="sm"
                 onClick={() => setHistoricoFiltros({ canal: canalDraft.trim(), pagina: 1 })}
               >
                 Aplicar canal
-              </button>
-              <button type="button" className="btn-small secondary" onClick={() => void refetchDeliveries()}>
-                Recarregar lista
-              </button>
+              </Button>
+              <Button type="button" size="sm" variant="secondary" onClick={() => void refetchDeliveries()}>
+                Recarregar
+              </Button>
             </div>
           </div>
-          {delLoading && !rawPage ? (
-            <p className="op-muted">Carregando…</p>
-          ) : displayRows.length === 0 ? (
-            <p className="empty-state">Sem registos com estes filtros.</p>
-          ) : (
-            <ul className="notif-delivery-list">
-              {displayRows.map((r) => {
-                const id = pickStr(r, 'id', 'Id');
-                const st = pickStr(r, 'status', 'Status');
-                const sev = pickStr(r, 'severity', 'Severity');
-                const pr = deliveryPriority(r);
-                const canRetry = st === 'Failed' && id !== '—';
-                const sum = pickStr(r, 'payloadSummary', 'PayloadSummary');
-                return (
-                  <li key={id} className={`notif-delivery-card notif-delivery-card--${pr}`}>
-                    <div className="notif-delivery-card__head">
-                      <span className={`notif-pill notif-pill--status notif-pill--st-${slugStatus(st)}`}>
-                        {statusPt(st)}
-                      </span>
-                      <span className={`notif-pill notif-pill--sev notif-pill--sev-${slugSeverity(sev)}`}>
-                        {severityPt(sev)}
-                      </span>
-                      <span className="notif-delivery-card__channel">{pickStr(r, 'channel', 'Channel')}</span>
-                    </div>
-                    <p className="notif-delivery-card__mono notif-delivery-card__corr">
-                      {pickStr(r, 'correlationId', 'CorrelationId')}
-                    </p>
-                    <p className="notif-delivery-card__summary">{sum}</p>
-                    <div className="notif-delivery-card__meta flex flex-col gap-2 text-sm text-text-muted sm:flex-row sm:items-center sm:justify-between">
-                      <span>{pickStr(r, 'createdAt', 'CreatedAt')}</span>
-                      <span className="op-muted op-small">
-                        Reenvios: {pickNum(r, 'retryCount', 'RetryCount')}
-                      </span>
-                    </div>
-                    <div className="notif-delivery-card__actions flex flex-wrap gap-2">
-                      {canRetry ? (
-                        <button
-                          type="button"
-                          className="btn-small"
-                          disabled={actionId === id}
-                          onClick={() => void onRetry(id)}
-                        >
-                          {actionId === id ? 'A reenviar…' : 'Tentar de novo'}
-                        </button>
-                      ) : null}
-                      {pickStr(r, 'operationalLink', 'OperationalLink') !== '—' && (
-                        <a
-                          className="btn-small secondary"
-                          href={pickStr(r, 'operationalLink', 'OperationalLink')}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Contexto
-                        </a>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <div className="pagination-bar notif-hub__pager">
-            <button
+          <div className="rounded-xl border border-surface-border bg-surface-card shadow-macro-sm">
+            {delLoading && !rawPage ? (
+              <p className="px-5 py-8 text-sm text-text-muted">Carregando…</p>
+            ) : displayRows.length === 0 ? (
+              <p className="px-5 py-12 text-center text-sm text-text-muted">
+                Sem registos com estes filtros.
+              </p>
+            ) : (
+              <ul className="divide-y divide-surface-border" role="list">
+                {displayRows.map((r) => (
+                  <DeliveryCard
+                    key={pickStr(r, 'id', 'Id')}
+                    row={r}
+                    actionId={actionId}
+                    onRetry={(id) => void onRetry(id)}
+                    showCorrelation
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button
               type="button"
-              className="btn-small secondary"
+              size="sm"
+              variant="secondary"
               disabled={currentPage <= 1 || delLoading}
               onClick={() => setHistoricoFiltros({ pagina: currentPage - 1 })}
             >
               Anterior
-            </button>
-            <span className="op-muted op-small">
+            </Button>
+            <span className="text-sm text-text-muted">
               Página {currentPage} de {totalPages} ({total} linhas)
             </span>
-            <button
+            <Button
               type="button"
-              className="btn-small secondary"
+              size="sm"
+              variant="secondary"
               disabled={currentPage >= totalPages || delLoading}
               onClick={() => setHistoricoFiltros({ pagina: currentPage + 1 })}
             >
               Seguinte
-            </button>
+            </Button>
           </div>
         </section>
       )}
 
       {visao === 'preferencias' && (
-        <section className="card notif-hub__section" aria-label="Preferências">
-          <h2 className="obligation-checklist__title" style={{ marginTop: 0 }}>
-            As suas preferências
-          </h2>
-          <p className="op-muted op-small">Alterações aplicam-se à sua conta neste condomínio.</p>
-          <NotificationsPreferencesPanel userId={userId} />
+        <section
+          className="rounded-xl border border-surface-border bg-surface-card p-5 shadow-macro-sm"
+          aria-label="Preferências"
+        >
+          <h2 className="text-base font-semibold text-text-main">As suas preferências</h2>
+          <p className="mt-1 text-sm text-text-muted">Alterações aplicam-se à sua conta neste condomínio.</p>
+          <div className="mt-4">
+            <NotificationsPreferencesPanel userId={userId} profileEmail={profile?.email} />
+          </div>
         </section>
       )}
 
       {visao === 'canais' && (
-        <section className="notif-hub__section" aria-label="Canais e modelos de mensagem">
-          {metaLoading && <p className="op-muted">Carregando dados do serviço…</p>}
-          {metaError && <div className="banner banner--error">{metaError}</div>}
+        <section className="space-y-6" aria-label="Canais e modelos de mensagem">
+          {metaLoading && <p className="text-sm text-text-muted">Carregando dados do serviço…</p>}
+          {metaError && (
+            <div className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm">
+              {metaError}
+            </div>
+          )}
           {!metaLoading && gov && (
             <>
-              <h2 className="obligation-checklist__title">Canais disponíveis</h2>
-              <p className="op-muted op-small">Formas como o sistema pode contactar utilizadores.</p>
-              <div className="notif-channel-grid">
-                {gov.channels.map((c) => (
-                  <article key={String(c.code ?? c.displayName)} className="notif-channel-card">
-                    <h3>{String(c.displayName ?? c.code ?? 'Canal')}</h3>
-                    <p className="notif-channel-card__code">{String(c.code ?? '—')}</p>
-                    <p className="op-muted op-small">{String(c.description ?? '')}</p>
-                  </article>
-                ))}
+              <div>
+                <h2 className="text-base font-semibold text-text-main">Canais disponíveis</h2>
+                <p className="mt-1 text-sm text-text-muted">
+                  Formas como o sistema pode contactar utilizadores.
+                </p>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {gov.channels.map((c) => (
+                    <article
+                      key={String(c.code ?? c.displayName)}
+                      className="rounded-xl border border-surface-border bg-surface-card p-4 shadow-macro-sm"
+                    >
+                      <h3 className="font-medium text-text-main">
+                        {String(c.displayName ?? c.code ?? 'Canal')}
+                      </h3>
+                      <p className="mt-1 font-mono text-xs text-text-muted">{String(c.code ?? '—')}</p>
+                      <p className="mt-2 text-sm text-text-muted">{String(c.description ?? '')}</p>
+                    </article>
+                  ))}
+                </div>
               </div>
 
-              <h2 className="obligation-checklist__title" style={{ marginTop: '2rem' }}>
-                Regras gerais
-              </h2>
-              <details className="notif-details-block">
-                <summary>Ver políticas técnicas (rate limit, deduplicação…)</summary>
-                <div className="table-scroll table--modern" style={{ marginTop: '0.75rem' }}>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Chave</th>
-                        <th>Valor</th>
-                        <th>Descrição</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {gov.policies.map((p) => (
-                        <tr key={String(p.key)}>
-                          <td className="op-mono op-small">{String(p.key ?? '—')}</td>
-                          <td>{String(p.value ?? '—')}</td>
-                          <td>{String(p.description ?? '—')}</td>
+              <div>
+                <h2 className="text-base font-semibold text-text-main">Regras gerais</h2>
+                <details className="mt-3 rounded-xl border border-surface-border bg-surface-card p-4">
+                  <summary className="cursor-pointer text-sm font-medium text-text-main">
+                    Ver políticas técnicas (rate limit, deduplicação…)
+                  </summary>
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-surface-border text-left text-text-muted">
+                          <th className="py-2 pr-4">Chave</th>
+                          <th className="py-2 pr-4">Valor</th>
+                          <th className="py-2">Descrição</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </details>
-              {gov.notes.length > 0 && (
-                <ul className="notif-notes-list">
-                  {gov.notes.map((n) => (
-                    <li key={n}>{n}</li>
-                  ))}
-                </ul>
-              )}
+                      </thead>
+                      <tbody>
+                        {gov.policies.map((p) => (
+                          <tr key={String(p.key)} className="border-b border-surface-border/60">
+                            <td className="py-2 pr-4 font-mono text-xs">{String(p.key ?? '—')}</td>
+                            <td className="py-2 pr-4">{String(p.value ?? '—')}</td>
+                            <td className="py-2 text-text-muted">{String(p.description ?? '—')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+                {gov.notes.length > 0 && (
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-text-muted">
+                    {gov.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
-              <h2 className="obligation-checklist__title" style={{ marginTop: '2rem' }}>
-                Modelos de mensagem
-              </h2>
-              <p className="op-muted op-small">Textos base usados pelo sistema (somente leitura).</p>
-              <div className="notif-template-grid">
-                {templates.map((t) => (
-                  <article key={String(t.code ?? t.channel)} className="notif-template-card">
-                    <div className="notif-template-card__head">
-                      <span className="notif-pill notif-pill--neutral">{String(t.channel ?? '—')}</span>
-                      <span className="op-mono op-small">{String(t.code ?? '—')}</span>
-                    </div>
-                    <p className="notif-template-card__subject">
-                      {String(t.subjectPattern ?? t.SubjectPattern ?? '—')}
-                    </p>
-                    <p className="op-muted op-small">{String(t.sourceEvent ?? t.SourceEvent ?? '')}</p>
-                  </article>
-                ))}
+              <div>
+                <h2 className="text-base font-semibold text-text-main">Modelos de mensagem</h2>
+                <p className="mt-1 text-sm text-text-muted">
+                  Textos base usados pelo sistema (somente leitura).
+                </p>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  {templates.map((t) => (
+                    <article
+                      key={String(t.code ?? t.channel)}
+                      className="rounded-xl border border-surface-border bg-surface-card p-4 shadow-macro-sm"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="neutral">{String(t.channel ?? '—')}</Badge>
+                        <span className="font-mono text-xs text-text-muted">{String(t.code ?? '—')}</span>
+                      </div>
+                      <p className="mt-2 text-sm font-medium text-text-main">
+                        {String(t.subjectPattern ?? t.SubjectPattern ?? '—')}
+                      </p>
+                      <p className="mt-1 text-xs text-text-muted">
+                        {String(t.sourceEvent ?? t.SourceEvent ?? '')}
+                      </p>
+                    </article>
+                  ))}
+                </div>
               </div>
             </>
           )}
         </section>
       )}
 
-      <p className="op-muted op-small notif-hub__foot">
+      <p className="text-sm text-text-muted">
         Dúvidas sobre alertas de preços e mercado? Consulte também a página de{' '}
-        <Link to="/alertas">Alertas</Link>.
+        <Link to="/alertas" className="text-brand-primary hover:underline">
+          Alertas
+        </Link>
+        .
       </p>
     </div>
   );

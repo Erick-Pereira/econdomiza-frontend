@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { extractUploadPipelineWarning } from '../../../lib/econdomiza-api';
 import { formatApiError } from '../../../lib/api-error-message';
 import { EcondomizaApi } from '../../../services';
 import { extractExpenseRows, mapAuditoriaExpenseRow, type AuditoriaExpenseRow } from '../lib/expense-map';
@@ -46,7 +47,11 @@ export function useAuditoriaData() {
   });
 
   const uploadMutation = useMutation({
-    mutationFn: (file: File) => EcondomizaApi.uploadDocument(file, { source: 'auditoria-page' }),
+    mutationFn: async (file: File) => {
+      const res = await EcondomizaApi.uploadDocument(file, { source: 'auditoria-page' });
+      const warning = extractUploadPipelineWarning(res.data);
+      return { fileName: file.name, warning };
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: auditoriaKeys.expenses() });
     },
@@ -56,12 +61,21 @@ export function useAuditoriaData() {
   const stats = expensesQuery.data?.stats ?? { total: 0, processing: 0, approved: 0, pendingApproval: 0 };
   const fetchError = expensesQuery.isError ? formatApiError(expensesQuery.error) : null;
   const uploadError = uploadMutation.isError ? formatApiError(uploadMutation.error) : null;
+  const uploadWarning = uploadMutation.data?.warning ?? null;
+  const uploadSuccessMessage =
+    uploadMutation.isSuccess && uploadMutation.data
+      ? uploadMutation.data.warning
+        ? null
+        : `“${uploadMutation.data.fileName}” enviado com sucesso. A lista será atualizada em instantes.`
+      : null;
 
   return {
     expenses,
     stats,
     fetchError,
     uploadError,
+    uploadWarning,
+    uploadSuccessMessage,
     isInitialLoading: expensesQuery.isLoading && !expensesQuery.data,
     isFetching: expensesQuery.isFetching,
     isUploading: uploadMutation.isPending,

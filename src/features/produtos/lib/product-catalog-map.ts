@@ -36,6 +36,9 @@ export interface ProductCatalogItem {
   minUnitPrice: number;
   maxUnitPrice: number;
   variationPercentage: number | null;
+  marketBenchmarkPrice: number | null;
+  marketDeviationPercentage: number | null;
+  lastBenchmarkAt: string | null;
   firstSeen: string;
   lastSeen: string;
   suppliers: ProductSupplierSummary[];
@@ -133,6 +136,24 @@ function normalizeCatalogItem(raw: Record<string, unknown>): ProductCatalogItem 
             const n = Number(raw.variationPercentage ?? raw.VariationPercentage);
             return Number.isFinite(n) ? n : null;
           })(),
+    marketBenchmarkPrice:
+      raw.marketBenchmarkPrice === null || raw.MarketBenchmarkPrice === null
+        ? null
+        : (() => {
+            const n = Number(raw.marketBenchmarkPrice ?? raw.MarketBenchmarkPrice);
+            return Number.isFinite(n) ? n : null;
+          })(),
+    marketDeviationPercentage:
+      raw.marketDeviationPercentage === null || raw.MarketDeviationPercentage === null
+        ? null
+        : (() => {
+            const n = Number(raw.marketDeviationPercentage ?? raw.MarketDeviationPercentage);
+            return Number.isFinite(n) ? n : null;
+          })(),
+    lastBenchmarkAt:
+      raw.lastBenchmarkAt != null || raw.LastBenchmarkAt != null
+        ? String(raw.lastBenchmarkAt ?? raw.LastBenchmarkAt)
+        : null,
     firstSeen: String(raw.firstSeen ?? raw.FirstSeen ?? ''),
     lastSeen: String(raw.lastSeen ?? raw.LastSeen ?? ''),
     suppliers,

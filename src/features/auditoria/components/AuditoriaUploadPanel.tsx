@@ -10,6 +10,8 @@ interface AuditoriaUploadPanelProps {
   disabled?: boolean;
   isUploading: boolean;
   uploadError: string | null;
+  uploadWarning?: string | null;
+  uploadSuccessMessage?: string | null;
   onUpload: (file: File) => Promise<unknown>;
 }
 
@@ -17,19 +19,18 @@ export function AuditoriaUploadPanel({
   disabled = false,
   isUploading,
   uploadError,
+  uploadWarning = null,
+  uploadSuccessMessage = null,
   onUpload,
 }: AuditoriaUploadPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [lastSuccess, setLastSuccess] = useState<string | null>(null);
 
   const handleFile = useCallback(
     async (file: File | undefined) => {
       if (!file || disabled || isUploading) return;
-      setLastSuccess(null);
       try {
         await onUpload(file);
-        setLastSuccess(`“${file.name}” enviado com sucesso. A lista será atualizada em instantes.`);
       } catch {
         /* erro propagado via uploadError */
       }
@@ -114,7 +115,17 @@ export function AuditoriaUploadPanel({
           </Button>
         </div>
 
-        {lastSuccess && <FormSuccessMessage className="mt-4">{lastSuccess}</FormSuccessMessage>}
+        {uploadSuccessMessage && (
+          <FormSuccessMessage className="mt-4">{uploadSuccessMessage}</FormSuccessMessage>
+        )}
+        {uploadWarning && (
+          <div
+            className="mt-4 rounded-lg border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm text-text-main"
+            role="alert"
+          >
+            <strong className="font-medium">Atenção — pipeline incompleto:</strong> {uploadWarning}
+          </div>
+        )}
         {uploadError && <FormError className="mt-4">{uploadError}</FormError>}
       </div>
     </section>

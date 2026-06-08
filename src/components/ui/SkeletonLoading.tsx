@@ -50,7 +50,16 @@ function AnimatedSkeletonWrapper({
 
 export const SkeletonLoading = forwardRef<HTMLDivElement, SkeletonLoadingProps>(
   (
-    { shape = 'rect', size = 'md', children, className, style, animated = true, duration = 2000, ...props },
+    {
+      shape = 'rect',
+      size = 'md',
+      children,
+      className,
+      style,
+      animated = true,
+      duration: _duration = 2000,
+      ...props
+    },
     ref
   ) => {
     if (!children) {

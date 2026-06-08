@@ -1,6 +1,7 @@
 import { useQueries } from '@tanstack/react-query';
 import { mapSeverityToDashboardLevel, severityUpperFromAlertRow } from '../../../lib/alert-row';
 import { normalizeListPayload } from '../../../lib/api-normalize';
+import { pickCreatedAtIso, sortByCreatedAtDesc } from '../../../lib/sort-by-date';
 import { formatApiError } from '../../../lib/api-error-message';
 import type { DashboardKpiPayload } from '../../../lib/dashboard-from-monthly';
 import { enrichMonthlyKpisWithActiveAlertCount } from '../../../lib/dashboard-kpi-merge';
@@ -28,17 +29,18 @@ function emptyDashboardKpis(year: number): DashboardKpiPayload {
 }
 
 function mapAlertRows(rawRows: Record<string, unknown>[]): DashboardAlertItem[] {
-  return rawRows.map((alert) => {
+  const rows = rawRows.map((alert) => {
     const sev = severityUpperFromAlertRow(alert);
     const mapped = mapSeverityToDashboardLevel(sev);
     return {
-      id: String(alert.id ?? ''),
-      type: String(alert.type ?? 'Alerta'),
-      message: String(alert.message ?? ''),
-      createdAt: String(alert.createdAt ?? ''),
+      id: String(alert.id ?? alert.Id ?? ''),
+      type: String(alert.type ?? alert.Type ?? 'Alerta'),
+      message: String(alert.message ?? alert.Message ?? ''),
+      createdAt: pickCreatedAtIso(alert),
       severity: mapped,
     };
   });
+  return sortByCreatedAtDesc(rows);
 }
 
 export function useDashboardData() {
@@ -67,10 +69,11 @@ export function useDashboardData() {
 
   if (summaryQuery.isSuccess) {
     const summaryRes = summaryQuery.data;
+    const baseKpis = summaryRes.data;
     kpis =
-      summaryRes.kpiSource === 'monthly'
-        ? enrichMonthlyKpisWithActiveAlertCount(summaryRes.data, alertList)
-        : summaryRes.data;
+      summaryRes.kpiSource === 'monthly' || baseKpis.alertasAtivos === 0
+        ? enrichMonthlyKpisWithActiveAlertCount(baseKpis, alertList)
+        : baseKpis;
   } else if (summaryQuery.isError) {
     kpiError = formatApiError(summaryQuery.error);
     kpis = emptyDashboardKpis(new Date().getFullYear());

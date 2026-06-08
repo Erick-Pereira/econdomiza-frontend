@@ -15,7 +15,15 @@ interface ExpenseSummaryCardProps {
   retryCount: number;
   documentReference: string;
   legacyStatus: string;
+  totalAmount?: number | null;
+  totalPaid?: number | null;
+  outstandingBalance?: number | null;
 }
+
+const formatCurrency = (value: number | null | undefined) => {
+  const n = value ?? 0;
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
 const ExpenseSummaryCard: React.FC<ExpenseSummaryCardProps> = ({
   desc,
@@ -30,6 +38,9 @@ const ExpenseSummaryCard: React.FC<ExpenseSummaryCardProps> = ({
   retryCount,
   documentReference,
   legacyStatus,
+  totalAmount = 0,
+  totalPaid = 0,
+  outstandingBalance = 0,
 }) => {
   const getProcessingBadgeVariant = (code: string): 'error' | 'warning' | 'ok' | 'neutral' => {
     if (code === 'Failed') return 'error';
@@ -86,19 +97,23 @@ const ExpenseSummaryCard: React.FC<ExpenseSummaryCardProps> = ({
         <Card padding="none" hoverEffect={false}>
           <div className="flex items-center justify-between p-3 sm:p-4">
             <span className="text-xs sm:text-sm text-text-muted">Total</span>
-            <span className="text-sm sm:text-base font-bold text-brand-primary">R$ 0.00</span>
+            <span className="text-sm sm:text-base font-bold text-brand-primary">
+              {formatCurrency(totalAmount)}
+            </span>
           </div>
         </Card>
         <Card padding="none" hoverEffect={false}>
           <div className="flex items-center justify-between p-3 sm:p-4">
             <span className="text-xs sm:text-sm text-text-muted">Pago</span>
-            <span className="text-sm sm:text-base font-bold text-green-600">R$ 0.00</span>
+            <span className="text-sm sm:text-base font-bold text-green-600">{formatCurrency(totalPaid)}</span>
           </div>
         </Card>
         <Card padding="none" hoverEffect={false}>
           <div className="flex items-center justify-between p-3 sm:p-4">
             <span className="text-xs sm:text-sm text-text-muted">Em aberto</span>
-            <span className="text-sm sm:text-base font-bold text-yellow-600">R$ 0.00</span>
+            <span className="text-sm sm:text-base font-bold text-yellow-600">
+              {formatCurrency(outstandingBalance)}
+            </span>
           </div>
         </Card>
       </div>
@@ -108,7 +123,9 @@ const ExpenseSummaryCard: React.FC<ExpenseSummaryCardProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div>
             <p className="text-xs text-text-muted uppercase tracking-wide mb-2">Emissão</p>
-            <p className="font-medium text-sm">{issueDate ? new Date(issueDate).toLocaleDateString('pt-BR') : '—'}</p>
+            <p className="font-medium text-sm">
+              {issueDate ? new Date(issueDate).toLocaleDateString('pt-BR') : '—'}
+            </p>
           </div>
           <div>
             <p className="text-xs text-text-muted uppercase tracking-wide mb-2">Retries</p>

@@ -146,14 +146,14 @@ export function sortDeliveriesRecent(items: DeliveryRow[]): DeliveryRow[] {
     return 2;
   };
   const t = (r: DeliveryRow) => {
-    const s = pickStr(r, 'createdAt', 'CreatedAt');
+    const s = pickStr(r, 'createdAt', 'CreatedAt', 'sentAt', 'SentAt');
     const n = new Date(s).getTime();
     return Number.isFinite(n) ? n : 0;
   };
   return [...items].sort((a, b) => {
-    const dr = rank(a) - rank(b);
-    if (dr !== 0) return dr;
-    return t(b) - t(a);
+    const byDate = t(b) - t(a);
+    if (byDate !== 0) return byDate;
+    return rank(a) - rank(b);
   });
 }
 

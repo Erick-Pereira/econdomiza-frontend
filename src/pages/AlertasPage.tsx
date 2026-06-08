@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { RefreshCw, Search } from 'lucide-react';
+import { Check, RefreshCw, Search } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageFatalErrorState } from '../components/layout/PageLoadStates';
 import { Badge, Button, Input, Select, SkeletonLoading } from '../components/ui';
 import { useAlertasList } from '../features/alertas/hooks/useAlertasList';
+import { useMarkAlertRead } from '../features/alertas/hooks/useMarkAlertRead';
 import { formatAlertDatePtBr } from '../lib/alert-row';
+import { formatApiError } from '../lib/api-error-message';
 import { cn } from '../lib/cn';
 
 type StatusFilter = 'todos' | 'aberto' | 'resolvido';
@@ -17,8 +19,10 @@ const PRIORITY_VARIANT: Record<string, 'error' | 'warning' | 'neutral'> = {
 
 const AlertasPage: React.FC = () => {
   const { data, isLoading, isFetching, isError, error, refetch } = useAlertasList();
+  const markRead = useMarkAlertRead();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('aberto');
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const rows = data ?? [];
@@ -76,6 +80,15 @@ const AlertasPage: React.FC = () => {
           </Button>
         }
       />
+
+      {actionError && (
+        <div
+          className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-text-main"
+          role="alert"
+        >
+          {actionError}
+        </div>
+      )}
 
       <div className="flex flex-col gap-4 rounded-xl border border-surface-border bg-surface-card p-4 shadow-macro-sm sm:flex-row sm:items-end">
         <div className="relative flex-1">
@@ -138,9 +151,30 @@ const AlertasPage: React.FC = () => {
                     {alert.categoria} · {alert.tipo}
                   </p>
                 </div>
-                <time className="shrink-0 text-xs text-text-muted" dateTime={alert.createdAt}>
-                  {formatAlertDatePtBr(alert.createdAt)}
-                </time>
+                <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+                  <time className="text-xs text-text-muted" dateTime={alert.createdAt}>
+                    {formatAlertDatePtBr(alert.createdAt)}
+                  </time>
+                  {alert.status === 'aberto' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={markRead.isPending && markRead.variables === alert.id}
+                      icon={<Check className="h-4 w-4" aria-hidden />}
+                      onClick={() => {
+                        setActionError(null);
+                        markRead.mutate(alert.id, {
+                          onError: (e) => setActionError(formatApiError(e)),
+                        });
+                      }}
+                    >
+                      {markRead.isPending && markRead.variables === alert.id
+                        ? 'A marcar…'
+                        : 'Marcar como lido'}
+                    </Button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

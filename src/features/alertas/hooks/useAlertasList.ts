@@ -5,6 +5,7 @@ import {
   severityUpperFromAlertRow,
 } from '../../../lib/alert-row';
 import { normalizeListPayload } from '../../../lib/api-normalize';
+import { pickCreatedAtIso, sortByCreatedAtDesc } from '../../../lib/sort-by-date';
 import { EcondomizaApi } from '../../../services';
 import { alertasKeys } from '../query-keys';
 
@@ -21,23 +22,24 @@ export interface AlertaRow {
 }
 
 function mapAlertRows(items: Record<string, unknown>[], condominioNome: string): AlertaRow[] {
-  return items.map((item) => {
+  const rows = items.map((item) => {
     const sev = severityUpperFromAlertRow(item);
     const prio = prioridadeLabelFromSeverity(sev);
     const msg = String(item.message ?? item.title ?? item.titulo ?? '');
-    const product = String(item.productName ?? '');
+    const product = String(item.productName ?? item.ProductName ?? '');
     return {
-      id: String(item.id ?? ''),
-      tipo: String(item.type ?? item.tipo ?? 'alerta'),
+      id: String(item.id ?? item.Id ?? ''),
+      tipo: String(item.type ?? item.tipo ?? item.Type ?? 'alerta'),
       condominioNome,
       titulo: product ? `${product} — ${msg}` : msg,
-      categoria: String(item.alertCategory ?? item.category ?? item.categoria ?? '—'),
+      categoria: String(item.alertCategory ?? item.category ?? item.categoria ?? item.Category ?? '—'),
       prioridade: prio,
       status: isAlertRowResolved(item) ? 'resolvido' : 'aberto',
-      createdAt: String(item.createdAt ?? ''),
-      updatedAt: String(item.updatedAt ?? item.createdAt ?? ''),
+      createdAt: pickCreatedAtIso(item),
+      updatedAt: String(item.updatedAt ?? item.UpdatedAt ?? pickCreatedAtIso(item)),
     };
   });
+  return sortByCreatedAtDesc(rows);
 }
 
 export function useAlertasList() {

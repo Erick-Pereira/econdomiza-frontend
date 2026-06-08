@@ -21,6 +21,8 @@ const AuditoriaPage: React.FC = () => {
     stats,
     fetchError,
     uploadError,
+    uploadWarning,
+    uploadSuccessMessage,
     isInitialLoading,
     isFetching,
     isUploading,
@@ -72,7 +74,13 @@ const AuditoriaPage: React.FC = () => {
       <AuditoriaStatsGrid stats={stats} />
 
       {canUpload ? (
-        <AuditoriaUploadPanel isUploading={isUploading} uploadError={uploadError} onUpload={uploadFile} />
+        <AuditoriaUploadPanel
+          isUploading={isUploading}
+          uploadError={uploadError}
+          uploadWarning={uploadWarning}
+          uploadSuccessMessage={uploadSuccessMessage}
+          onUpload={uploadFile}
+        />
       ) : (
         <div className="rounded-xl border border-surface-border bg-surface-muted/50 px-5 py-4 text-sm text-text-muted">
           O upload de documentos é restrito ao perfil{' '}

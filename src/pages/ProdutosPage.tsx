@@ -133,7 +133,10 @@ const ProdutosPage: React.FC = () => {
                     <p className="text-text-muted">
                       Total gasto {moneyBr(item.totalSpent)}
                       {item.variationPercentage != null
-                        ? ` · var. ${item.variationPercentage.toFixed(1)}%`
+                        ? ` · var. histórica ${item.variationPercentage.toFixed(1)}%`
+                        : ''}
+                      {item.marketDeviationPercentage != null
+                        ? ` · vs mercado ${item.marketDeviationPercentage.toFixed(1)}%`
                         : ''}
                     </p>
                   </div>

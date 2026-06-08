@@ -1,17 +1,19 @@
 import React from 'react';
-import { User } from 'lucide-react';
+import { Bell, User } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { SkeletonLoading } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useMyCondominio } from '../features/configuracoes/hooks/useConfiguracoesAccount';
 import { TENANT_ROLE_LABELS, isTenantRole } from '../domain/auth-roles';
 import { formatDatePtBr } from '../lib/format-date-pt-br';
+import { canConfigureNotificationPreferences } from '../lib/permissions/rbac';
+import NotificationsPreferencesPanel from './notifications/NotificationsPreferencesPanel';
 
-function Field({ label, value }: { label: string; value: string }) {
+function ProfileField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-surface-border bg-surface-muted/40 px-4 py-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">{label}</p>
-      <p className="mt-1 text-sm font-medium text-text-main">{value || '—'}</p>
+    <div className="config-profile-field">
+      <p className="config-profile-field__label">{label}</p>
+      <p className="config-profile-field__value">{value || '—'}</p>
     </div>
   );
 }
@@ -19,6 +21,8 @@ function Field({ label, value }: { label: string; value: string }) {
 const ConfiguracoesPage: React.FC = () => {
   const { profile } = useAuth();
   const { condominioNome, isLoading } = useMyCondominio(profile?.tenantId);
+  const showNotificationPrefs = canConfigureNotificationPreferences(profile?.role);
+  const userId = profile?.id?.trim() ?? '';
 
   const roleLabel =
     profile?.role && isTenantRole(profile.role) ? TENANT_ROLE_LABELS[profile.role] : (profile?.role ?? '—');
@@ -36,34 +40,60 @@ const ConfiguracoesPage: React.FC = () => {
     <div className="page w-full max-w-full min-w-0 overflow-x-hidden space-y-8" id="configuracoes-page">
       <PageHeader
         eyebrow="Conta"
-        title="Meu perfil"
-        description="Dados da sessão atual — leitura via identity-service (sem edição nesta versão)."
+        title="Configurações"
+        description="Perfil da sessão e preferências de notificação para alertas de preço."
         layout="stack"
       />
 
-      <section className="rounded-xl border border-surface-border bg-surface-card p-6 shadow-macro-sm">
-        <div className="mb-6 flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-primary/10 text-brand-primary">
-            <User className="h-7 w-7" aria-hidden />
+      <section className="config-section" aria-labelledby="config-perfil-heading">
+        <div className="config-section__head">
+          <div className="config-section__avatar" aria-hidden>
+            <User className="config-section__avatar-icon" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-text-main">{profile.name || profile.email}</h2>
-            <p className="text-sm text-text-muted">{roleLabel}</p>
+            <h2 id="config-perfil-heading" className="config-section__title">
+              {profile.name || profile.email}
+            </h2>
+            <p className="config-section__subtitle">{roleLabel}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="E-mail" value={profile.email} />
-          <Field label="Perfil" value={roleLabel} />
-          <Field label="Condomínio" value={isLoading ? 'A carregar…' : (condominioNome ?? '—')} />
-          <Field label="Membro desde" value={formatDatePtBr(profile.createdAt, '—')} />
+        <div className="config-profile-grid">
+          <ProfileField label="E-mail" value={profile.email} />
+          <ProfileField label="Perfil" value={roleLabel} />
+          <ProfileField label="Condomínio" value={isLoading ? 'A carregar…' : (condominioNome ?? '—')} />
+          <ProfileField label="Membro desde" value={formatDatePtBr(profile.createdAt, '—')} />
         </div>
 
-        <p className="mt-6 text-xs text-text-muted">
+        <p className="config-section__footnote">
           Alterações de perfil ou papel devem ser feitas pelo administrador do condomínio ou suporte da
           plataforma.
         </p>
       </section>
+
+      {showNotificationPrefs && (
+        <section className="config-section" aria-labelledby="config-notificacoes-heading">
+          <div className="config-section__head config-section__head--split">
+            <div className="config-section__head-main">
+              <div className="config-section__icon" aria-hidden>
+                <Bell className="config-section__icon-svg" />
+              </div>
+              <div>
+                <h2 id="config-notificacoes-heading" className="config-section__title">
+                  Notificações
+                </h2>
+                <p className="config-section__lead">
+                  Escolha como receber alertas de preço. O sistema só envia após guardar com pelo menos um
+                  canal activo.
+                </p>
+              </div>
+            </div>
+            <span className="op-badge op-badge--neutral">Obrigatório para alertas</span>
+          </div>
+
+          <NotificationsPreferencesPanel userId={userId} profileEmail={profile.email} embedded />
+        </section>
+      )}
     </div>
   );
 };
