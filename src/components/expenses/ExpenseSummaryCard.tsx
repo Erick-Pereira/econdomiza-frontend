@@ -50,7 +50,7 @@ const ExpenseSummaryCard: React.FC<ExpenseSummaryCardProps> = ({
   return (
     <Card padding="lg">
       {/* Title and main info */}
-      <h2 className="text-2xl font-bold text-text-main">{desc || 'Despesa'}</h2>
+      <h2 className="text-xl sm:text-2xl font-bold text-text-main">{desc || 'Despesa'}</h2>
 
       <div className="flex flex-wrap items-center gap-3 mt-2 text-sm">
         {supplier && (
@@ -82,47 +82,47 @@ const ExpenseSummaryCard: React.FC<ExpenseSummaryCardProps> = ({
       )}
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-surface-border">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-6 pt-6 border-t border-surface-border">
         <Card padding="none" hoverEffect={false}>
-          <div className="flex items-center justify-between p-3">
-            <span className="text-sm text-text-muted">Total</span>
-            <span className="font-bold text-brand-primary">R$ 0.00</span>
+          <div className="flex items-center justify-between p-3 sm:p-4">
+            <span className="text-xs sm:text-sm text-text-muted">Total</span>
+            <span className="text-sm sm:text-base font-bold text-brand-primary">R$ 0.00</span>
           </div>
         </Card>
         <Card padding="none" hoverEffect={false}>
-          <div className="flex items-center justify-between p-3">
-            <span className="text-sm text-text-muted">Pago</span>
-            <span className="font-bold text-green-600">R$ 0.00</span>
+          <div className="flex items-center justify-between p-3 sm:p-4">
+            <span className="text-xs sm:text-sm text-text-muted">Pago</span>
+            <span className="text-sm sm:text-base font-bold text-green-600">R$ 0.00</span>
           </div>
         </Card>
         <Card padding="none" hoverEffect={false}>
-          <div className="flex items-center justify-between p-3">
-            <span className="text-sm text-text-muted">Em aberto</span>
-            <span className="font-bold text-yellow-600">R$ 0.00</span>
+          <div className="flex items-center justify-between p-3 sm:p-4">
+            <span className="text-xs sm:text-sm text-text-muted">Em aberto</span>
+            <span className="text-sm sm:text-base font-bold text-yellow-600">R$ 0.00</span>
           </div>
         </Card>
       </div>
 
       {/* Additional details in grid */}
-      <div className="mt-4 pt-4 border-t border-surface-border text-sm">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="mt-4 pt-4 border-t border-surface-border text-xs sm:text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div>
-            <p className="text-xs text-text-muted uppercase tracking-wide mb-1">Emissão</p>
-            <p className="font-medium">{issueDate ? new Date(issueDate).toLocaleDateString('pt-BR') : '—'}</p>
+            <p className="text-xs text-text-muted uppercase tracking-wide mb-2">Emissão</p>
+            <p className="font-medium text-sm">{issueDate ? new Date(issueDate).toLocaleDateString('pt-BR') : '—'}</p>
           </div>
           <div>
-            <p className="text-xs text-text-muted uppercase tracking-wide mb-1">Retries</p>
-            <p className="font-medium">{retryCount}</p>
+            <p className="text-xs text-text-muted uppercase tracking-wide mb-2">Retries</p>
+            <p className="font-medium text-sm">{retryCount}</p>
           </div>
           <div>
-            <p className="text-xs text-text-muted uppercase tracking-wide mb-1">Documento</p>
-            <p className="font-medium text-sm truncate" title={documentReference}>
+            <p className="text-xs text-text-muted uppercase tracking-wide mb-2">Documento</p>
+            <p className="font-medium text-sm truncate min-w-0" title={documentReference}>
               {documentReference || '—'}
             </p>
           </div>
           <div>
-            <p className="text-xs text-text-muted uppercase tracking-wide mb-1">Status legado</p>
-            <p className="font-medium">{legacyStatus || '—'}</p>
+            <p className="text-xs text-text-muted uppercase tracking-wide mb-2">Status legado</p>
+            <p className="font-medium text-sm">{legacyStatus || '—'}</p>
           </div>
         </div>
       </div>

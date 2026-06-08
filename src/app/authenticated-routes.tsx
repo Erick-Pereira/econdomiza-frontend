@@ -62,7 +62,13 @@ const AuthenticatedRoutes: React.FC<Props> = ({ defaultRoute = '/dashboard', use
     />
     <Route
       path="/morador"
-      element={hasRole(userRole, 'MORADOR') ? <MoradorHomePage /> : <Navigate to={defaultRoute} replace />}
+      element={
+        hasRole(userRole, 'MORADOR') ? (
+          <MoradorHomePage />
+        ) : (
+          <Navigate to={defaultRoute} replace />
+        )
+      }
     />
     <Route
       path="/dashboard"

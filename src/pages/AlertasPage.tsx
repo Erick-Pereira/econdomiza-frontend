@@ -58,7 +58,7 @@ const AlertasPage: React.FC = () => {
   }
 
   return (
-    <div className="page w-full space-y-8" id="alertas-page">
+    <div className="page w-full max-w-full min-w-0 overflow-x-hidden space-y-8" id="alertas-page">
       <PageHeader
         eyebrow="Monitorização"
         title="Central de alertas"

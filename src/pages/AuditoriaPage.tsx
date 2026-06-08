@@ -37,7 +37,7 @@ const AuditoriaPage: React.FC = () => {
   }
 
   return (
-    <div className="page w-full space-y-8" id="auditoria-page">
+    <div className="page w-full max-w-full min-w-0 overflow-x-hidden space-y-8" id="auditoria-page">
       <PageHeader
         eyebrow="Fiscalização"
         title={canUpload ? 'Auditoria de despesas' : 'Relatório de auditoria'}

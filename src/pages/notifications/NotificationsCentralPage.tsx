@@ -156,7 +156,7 @@ const NotificationsCentralPage: React.FC = () => {
   }
 
   return (
-    <div className="notif-hub" id="notif-central">
+    <div className="notif-hub w-full max-w-full min-w-0 space-y-8 overflow-x-hidden" id="notif-central">
       <PageHeader
         eyebrow="Alertas e auditoria"
         title="Central de notificações"
@@ -191,7 +191,11 @@ const NotificationsCentralPage: React.FC = () => {
         </div>
       )}
 
-      <div className="notif-hub__kpis" role="group" aria-label="Resumo de entregas">
+      <div
+        className="notif-hub__kpis grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        role="group"
+        aria-label="Resumo de entregas"
+      >
         <button
           type="button"
           className="notif-kpi notif-kpi--clickable"
@@ -243,7 +247,11 @@ const NotificationsCentralPage: React.FC = () => {
         </button>
       </div>
 
-      <div className="obligation-segment notif-hub__segment" role="tablist" aria-label="Seções">
+      <div
+        className="obligation-segment notif-hub__segment flex flex-wrap gap-2 overflow-x-auto rounded-xl border border-surface-border bg-surface-card p-2 shadow-sm"
+        role="tablist"
+        aria-label="Seções"
+      >
         <button
           type="button"
           role="tab"
@@ -316,7 +324,7 @@ const NotificationsCentralPage: React.FC = () => {
                     <p className="notif-delivery-card__summary">
                       {sum.length > 160 ? `${sum.slice(0, 160)}…` : sum}
                     </p>
-                    <div className="notif-delivery-card__meta">
+                    <div className="notif-delivery-card__meta flex flex-col gap-2 text-sm text-text-muted sm:flex-row sm:items-center sm:justify-between">
                       <span>{pickStr(r, 'createdAt', 'CreatedAt')}</span>
                       {pickNum(r, 'retryCount', 'RetryCount') > 0 && (
                         <span className="op-muted op-small">
@@ -324,7 +332,7 @@ const NotificationsCentralPage: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <div className="notif-delivery-card__actions">
+                    <div className="notif-delivery-card__actions flex flex-wrap gap-2">
                       {canRetry ? (
                         <button
                           type="button"
@@ -364,8 +372,8 @@ const NotificationsCentralPage: React.FC = () => {
       {visao === 'historico' && (
         <section className="notif-hub__section" aria-label="Histórico de entregas">
           <h2 className="obligation-checklist__title">Histórico e filtros</h2>
-          <div className="card notif-hub__filters">
-            <div className="notif-filter-row">
+          <div className="card notif-hub__filters rounded-3xl border border-surface-border bg-surface-card p-4 shadow-macro-sm">
+            <div className="notif-filter-row grid gap-4 md:grid-cols-[minmax(220px,320px)_minmax(220px,1fr)] xl:grid-cols-[minmax(220px,320px)_minmax(220px,360px)_auto]">
               <label className="op-field op-field--inline">
                 <span>Estado</span>
                 <select
@@ -429,13 +437,13 @@ const NotificationsCentralPage: React.FC = () => {
                       {pickStr(r, 'correlationId', 'CorrelationId')}
                     </p>
                     <p className="notif-delivery-card__summary">{sum}</p>
-                    <div className="notif-delivery-card__meta">
+                    <div className="notif-delivery-card__meta flex flex-col gap-2 text-sm text-text-muted sm:flex-row sm:items-center sm:justify-between">
                       <span>{pickStr(r, 'createdAt', 'CreatedAt')}</span>
                       <span className="op-muted op-small">
                         Reenvios: {pickNum(r, 'retryCount', 'RetryCount')}
                       </span>
                     </div>
-                    <div className="notif-delivery-card__actions">
+                    <div className="notif-delivery-card__actions flex flex-wrap gap-2">
                       {canRetry ? (
                         <button
                           type="button"

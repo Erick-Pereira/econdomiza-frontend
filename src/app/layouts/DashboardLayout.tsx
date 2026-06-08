@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import SidebarNav from '../../components/layout/SidebarNav';
 import { getNavItemsForRole } from '../nav-items';
@@ -56,10 +57,10 @@ export function DashboardLayout({ children, pageTitle }: DashboardLayoutProps) {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-brand-primary/10 via-brand-secondary/10 to-brand-accent/20 flex items-center justify-center">
         <div className="text-center p-8 max-w-md mx-auto bg-white/10 backdrop-blur-lg rounded-3xl border border-white/20 shadow-2xl">
           <h1 className="text-3xl font-secondary font-bold text-white mb-4 drop-shadow-lg">
-            Bem-vindo ao Encondomiza
+            Bem-vindo ao Econdomiza
           </h1>
           <p className="text-white/70 mb-6">Verificando sua sessão de autenticação...</p>
           {isLoading ? (
@@ -90,21 +91,21 @@ export function DashboardLayout({ children, pageTitle }: DashboardLayoutProps) {
         )}
       </AnimatePresence>
 
-      <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900">
+      <div className="flex h-screen overflow-hidden bg-gradient-to-br from-brand-primary/10 via-brand-secondary/10 to-brand-accent/20">
         <motion.aside
           variants={{ hidden: { opacity: 0, x: -32 }, visible: { opacity: 1, x: 0 } }}
           initial="hidden"
           animate="visible"
           exit="hidden"
           id="sidebar"
-          className={`fixed left-0 top-0 z-[1200] flex h-full w-[252px] flex-col bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-500 p-4 shadow-2xl transition-transform duration-300 ease-in-out md:relative md:w-[252px] lg:shadow-[8px_0_32px_rgba(0,0,0,0.3)] ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+          className={`fixed left-0 top-0 z-[1200] flex h-full w-[252px] flex-col bg-gradient-to-br from-brand-primary via-brand-secondary to-brand-accent p-4 shadow-2xl transition-transform duration-300 ease-in-out md:relative md:w-[252px] lg:shadow-[8px_0_32px_rgba(0,0,0,0.3)] ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
           aria-label="Navegação principal"
         >
           <div className="mb-8 mt-6 flex items-center gap-3 px-4 py-5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-lg">
             <motion.div
               animate={{ rotate: [0, 5, -5, 0] }}
               transition={{ duration: 4, repeat: Infinity, repeatDelay: 3 }}
-              className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center shadow-lg"
+              className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg"
             >
               <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
@@ -117,7 +118,7 @@ export function DashboardLayout({ children, pageTitle }: DashboardLayoutProps) {
             </motion.div>
             <div className="flex flex-col">
               <p className="text-xs font-bold uppercase tracking-widest text-white/70 drop-shadow-sm">
-                SIMC-AG
+                {PRODUCT_COPY.brandKicker}
               </p>
               <h2 className="font-secondary text-xl font-bold leading-tight text-white drop-shadow-lg">
                 {PRODUCT_COPY.brandTitle}
@@ -141,7 +142,7 @@ export function DashboardLayout({ children, pageTitle }: DashboardLayoutProps) {
                 onClick={handleLogout}
                 className="flex h-[2.5rem] w-full items-center gap-3 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 px-4 py-3 text-sm font-semibold text-white transition-all duration-200 ease-in-out hover:from-red-600 hover:to-orange-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 md:inline-flex shadow-lg hover:shadow-xl"
               >
-                <span aria-hidden>🚪</span> Sair da Conta
+                <LogOut className="h-5 w-5 shrink-0 text-white/90" aria-hidden /> Sair da Conta
               </button>
             </li>
           </ul>
@@ -178,28 +179,12 @@ export function DashboardLayout({ children, pageTitle }: DashboardLayoutProps) {
             <motion.button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              className="flex h-[2.5rem] w-[3rem] items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 p-2 text-white transition-all duration-200 ease-in-out hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 md:hidden shadow-lg"
+              className="flex h-[2.5rem] w-[3rem] items-center justify-center rounded-xl bg-gradient-to-r from-brand-primary to-brand-secondary p-2 text-white transition-all duration-200 ease-in-out hover:from-brand-secondary hover:to-brand-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-secondary md:hidden shadow-lg"
               id="menu-toggle"
               aria-label="Abrir menu de navegação"
               aria-expanded={sidebarOpen}
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                {sidebarOpen ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                ) : (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                )}
-              </svg>
+              {sidebarOpen ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
             </motion.button>
 
             <div className="flex-1 overflow-hidden">

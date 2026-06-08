@@ -44,7 +44,7 @@ export function useExpenseComplianceMutations(expenseId: string) {
 
   const reevaluate = useMutation({
     mutationFn: () => EcondomizaApi.reevaluateExpenseCompliance(expenseId),
-    onSuccess: (res) => {
+    onSuccess: (res: { data?: unknown }) => {
       if (res.data) setComplianceData(res.data);
       else void invalidate();
     },

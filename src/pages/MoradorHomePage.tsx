@@ -34,7 +34,7 @@ const MoradorHomePage: FC = () => {
   const firstName = (profile?.name || profile?.email || 'Morador').split(' ')[0];
 
   return (
-    <div className="page w-full space-y-8" id="morador-home-page">
+    <div className="page w-full max-w-full min-w-0 overflow-x-hidden space-y-8" id="morador-home-page">
       <PageHeader
         eyebrow="Bem-vindo"
         title={`Olá, ${firstName}`}

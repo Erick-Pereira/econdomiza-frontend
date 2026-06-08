@@ -1,57 +1,24 @@
-import { forwardRef, useState, useId, type InputHTMLAttributes, type ReactNode } from 'react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import React, { forwardRef, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { cn, focusRingClass, transitionInteractiveClass } from '../../lib/cn';
 
-/**
- * Utility para mesclar classes Tailwind sem duplicação
- */
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
-// ============================================
-// DESIGN TOKENS — Sem strings literais de cor ("magic colors")
-// ============================================
-const DESIGN_TOKENS = {
-  surface: {
-    background: 'surface.background',
-    muted: 'surface.muted',
-    border: 'surface.border',
-  },
-  text: {
-    main: 'text.main',
-    muted: 'text.muted',
-  },
-  brand: {
-    primary: 'brand.primary',
-  },
-  status: {
-    error: 'status.error',
-  },
-};
-
-// ============================================
-// ESTILOS DE FOCO — Anel customizado acessível (WCAG)
-// ============================================
-const FOCUS_STYLES = [
-  'focus:outline-none',
-  'focus:ring-2',
-  `focus:ring-[${DESIGN_TOKENS.brand.primary}]`,
-  `focus:border-[${DESIGN_TOKENS.brand.primary}]`,
+const INPUT_BASE = [
+  'w-full min-w-0',
+  'px-3 py-2',
+  'text-sm text-text-main',
+  'bg-surface-card border border-surface-border rounded-xl shadow-atomic',
+  focusRingClass,
+  transitionInteractiveClass,
 ].join(' ');
 
-// ============================================
-// ESTILOS DE ERRO — Alto contraste para acessibilidade
-// ============================================
 const ERROR_STYLES = [
-  'border-status-error' /* Token semântico — Contraste WCAG */,
+  'border-status-error',
   'focus:ring-status-error',
   'focus:border-status-error',
 ].join(' ');
 
-// ============================================
-// TIPOS E INTERFACES
-// ============================================
+const ERROR_TEXT_STYLES = ['mt-1.5 text-sm text-status-error flex items-center gap-1'].join(' ');
+const HELPER_TEXT_STYLES = ['mt-1.5 text-sm text-text-muted'].join(' ');
+
 export interface PasswordInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
   label?: string;
   error?: string;
@@ -59,9 +26,6 @@ export interface PasswordInputProps extends Omit<InputHTMLAttributes<HTMLInputEl
   icon?: ReactNode;
 }
 
-// ============================================
-// COMPONENTE PASSWORD INPUT — Transições suaves e tokens semânticos
-// ============================================
 export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
   ({ label, error, helperText, icon, className = '', id, ...props }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
@@ -71,47 +35,39 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
     return (
       <div className={`w-full ${className}`}>
         {label && (
-          <label
-            htmlFor={uniqueId}
-            className="block text-sm font-medium text-text-main mb-1.5"
-            style={{ color: '#1A1A1A' }}
-          >
+          <label htmlFor={uniqueId} className="block text-sm font-medium text-text-main mb-1.5">
             {label}
           </label>
         )}
+
         <div className="relative">
-          {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">{icon}</div>}
+          {icon && (
+            <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" aria-hidden="true">
+              {icon}
+            </div>
+          )}
+
           <input
             ref={ref}
             id={uniqueId}
             type={showPassword ? 'text' : 'password'}
             className={cn(
-              'w-full',
-              'px-4',
-              'py-2.5',
-              'text-sm',
-              'text-text-main',
-              'bg-surface-background',
-              'border-border',
-              'rounded-lg', // atomic-md (8px)
-              'shadow-atomic', // sombra mínima
-              'placeholder:text-text-muted',
-              !icon ? '' : 'pl-10',
+              INPUT_BASE,
+              icon ? 'pl-10' : '',
               'pr-10',
-              'transition-all', // transição suave conforme diretriz
-              'duration-200', // 0.2s - tempo de transição suave
-              'ease-in-out', // curva de bezier suave
-              !error ? '' : ERROR_STYLES,
-              FOCUS_STYLES
+              error && ERROR_STYLES,
+              className
             )}
             aria-invalid={error ? 'true' : undefined}
             aria-describedby={error ? `${uniqueId}-error` : helperText ? `${uniqueId}-helper` : undefined}
             {...props}
           />
+
           <button
             type="button"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main transition-colors duration-150 ease-in-out focus:outline-none focus:text-text-main"
-            onClick={() => setShowPassword(!showPassword)}
+            disabled={props.disabled}
+            className="absolute right-3 top-1/2 z-20 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-transparent border-none text-text-muted hover:text-text-main transition-colors duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => setShowPassword((current) => !current)}
             aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
           >
             {showPassword ? (
@@ -146,22 +102,16 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             )}
           </button>
         </div>
+
         {error && (
-          <p
-            id={`${uniqueId}-error`}
-            className="mt-1.5 text-sm text-status-error flex items-center gap-1"
-            role="alert"
-          >
+          <p id={`${uniqueId}-error`} className={ERROR_TEXT_STYLES} role="alert">
             <span aria-hidden="true">⚠️</span>
             {error}
           </p>
         )}
+
         {!error && helperText && (
-          <p
-            id={`${uniqueId}-helper`}
-            className="mt-1.5 text-sm text-text-muted"
-            style={{ color: '#6b7280' }}
-          >
+          <p id={`${uniqueId}-helper`} className={HELPER_TEXT_STYLES}>
             {helperText}
           </p>
         )}

@@ -161,8 +161,9 @@ export const LoginForm: React.FC = () => {
                 error={errors.email}
                 autoComplete="username"
                 required
-                disabled={!hasCondominio || submitting}
+                disabled={submitting}
                 placeholder="seu@email.com"
+                className="flex-1 min-w-0 w-full px-3 py-2 text-sm text-text-main bg-surface-background border border-surface-border rounded-lg shadow-atomic focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 transition-all duration-200 ease-in-out"
               />
 
               <PasswordInput
@@ -173,7 +174,9 @@ export const LoginForm: React.FC = () => {
                 error={errors.password}
                 autoComplete="current-password"
                 required
-                disabled={!hasCondominio || submitting}
+                disabled={submitting}
+                placeholder="Digite sua senha"
+                className="w-full"
               />
 
               {errors.general && <FormError className="auth-screen-error">{errors.general}</FormError>}
@@ -182,7 +185,13 @@ export const LoginForm: React.FC = () => {
                 {submitting ? (
                   <LoadingSpinner fullWidth message="A entrar…" />
                 ) : (
-                  <Button type="submit" variant="primary" fullWidth disabled={!hasCondominio} size="lg">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    fullWidth
+                    disabled={!hasCondominio}
+                    size="lg"
+                  >
                     Entrar
                   </Button>
                 )}

@@ -46,7 +46,7 @@ const ProdutosPage: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
 
   return (
-    <div className="page w-full space-y-8" id="produtos-page">
+    <div className="page w-full max-w-full min-w-0 overflow-x-hidden space-y-8" id="produtos-page">
       <PageHeader
         eyebrow="Análise"
         title="Catálogo de produtos"

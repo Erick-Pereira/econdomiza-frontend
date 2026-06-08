@@ -59,7 +59,7 @@ export function AuditoriaExpensesList({ expenses, fetchError, readOnly }: Audito
           <>
             {/* Desktop table */}
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+              <table className="w-full border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-surface-border text-xs uppercase tracking-wide text-text-muted">
                     <th className="px-3 py-2 font-semibold">Descrição</th>

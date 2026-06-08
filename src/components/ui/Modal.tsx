@@ -45,33 +45,41 @@ export function Modal({ open, onClose, title, children, lead, footer, describedB
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="condo-modal" role="presentation">
-      <button type="button" className="condo-modal__backdrop" aria-label="Fechar" onClick={onClose} />
+    <div
+      className="condo-modal fixed inset-0 z-50 flex min-h-screen items-center justify-center overflow-y-auto px-4 py-6 sm:px-6"
+      role="presentation"
+    >
+      <button
+        type="button"
+        className="condo-modal__backdrop fixed inset-0 bg-black/50 backdrop-blur-sm"
+        aria-label="Fechar"
+        onClick={onClose}
+      />
       <motion.div
         variants={MODAL_VARIANTS}
         initial="hidden"
         animate="visible"
-        className="condo-modal__panel"
+        className="condo-modal__panel relative w-full max-w-3xl rounded-3xl border border-surface-border bg-surface-card p-6 shadow-2xl outline-none sm:p-8"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={describedBy}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="condo-modal__head">
+        <div className="condo-modal__head mb-4 flex items-start justify-between gap-4">
           <h2 id={titleId}>{title}</h2>
           <button
             type="button"
-            className="condo-modal__icon-btn"
+            className="condo-modal__icon-btn rounded-full p-2 text-text-muted transition hover:bg-surface-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
             onClick={onClose}
             aria-label="Fechar diálogo"
           >
             <X size={18} aria-hidden />
           </button>
         </div>
-        {lead ? <p className="condo-modal__lead">{lead}</p> : null}
-        <div className="condo-modal__body">{children}</div>
-        {footer ? <div className="condo-modal__actions">{footer}</div> : null}
+        {lead ? <p className="condo-modal__lead mb-4 text-sm text-text-muted">{lead}</p> : null}
+        <div className="condo-modal__body space-y-6">{children}</div>
+        {footer ? <div className="condo-modal__actions mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">{footer}</div> : null}
       </motion.div>
     </div>,
     document.body

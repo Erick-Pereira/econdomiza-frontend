@@ -81,28 +81,22 @@ export const Card: React.FC<CardProps> = ({
   return (
     <div
       className={cn(
-        'bg-surface-background', // Fundo branco padrão
+        'bg-surface-card', // Fundo branco padrão
         'border border-surface-border', // Borda sutil em cinza (surface-border)
-        'rounded-xl', // Arredondamento macroscópico (16px) conforme diretriz
+        'rounded-2xl', // Arredondamento macroscópico (16px) conforme diretriz
         paddingToken,
-        'shadow-macro-sm', // Sombra de alta dispersão e baixa opacidade com matização
+        'shadow-sm', // Sombra suave e moderna
         hoverEffect ? HOVER_EFFECT_TOKENS.hoverBgHover : '',
         className
       )}
     >
       {/* Cabeçalho do Card */}
       {(title || icon || action) && (
-        <div
-          className="flex items-start justify-between gap-4"
-          style={{ paddingBottom: '24px', borderBottom: '1px solid #e5e7eb' }}
-        >
+        <div className="flex items-start justify-between gap-3 sm:gap-4 pb-4 sm:pb-6 border-b border-surface-border">
           <div className="flex items-center gap-3">
             {/* Ícone do Card */}
             {icon && (
-              <span
-                className={`p-2 rounded-lg ${iconColor}`}
-                style={{ backgroundColor: 'rgba(26, 54, 93, 0.08)' }}
-              >
+              <span className={`p-2 sm:p-2.5 rounded-lg bg-slate-100 ${iconColor}`}>
                 {icon}
               </span>
             )}
@@ -110,7 +104,7 @@ export const Card: React.FC<CardProps> = ({
             {/* Título e Subtítulo */}
             <div className="flex flex-col">
               {title && (
-                <h3 className="text-lg font-semibold text-text-main" style={{ color: '#1A1A1A' }}>
+                <h3 className="text-base sm:text-lg font-semibold text-text-main">
                   {title}
                 </h3>
               )}
@@ -128,7 +122,7 @@ export const Card: React.FC<CardProps> = ({
         {children || description ? (
           <>
             {description && (
-              <p className="text-text-muted text-sm mt-4" style={{ color: '#6b7280', lineHeight: '1.5' }}>
+              <p className="text-text-muted text-xs sm:text-sm mt-4 leading-relaxed">
                 {description}
               </p>
             )}

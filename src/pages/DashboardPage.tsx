@@ -37,7 +37,7 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="page w-full space-y-8" id="dashboard-page">
+    <div className="page w-full max-w-full min-w-0 overflow-x-hidden space-y-8" id="dashboard-page">
       <PageHeader
         eyebrow="Início"
         title="Painel principal"

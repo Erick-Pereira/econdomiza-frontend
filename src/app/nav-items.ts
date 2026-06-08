@@ -1,11 +1,13 @@
 import type { AuthenticatedContentPath } from './authenticated-route-registry';
 import { AUTHENTICATED_NAV_SPEC } from './authenticated-route-registry';
+import type { LucideIcon } from 'lucide-react';
+import { LayoutDashboard } from 'lucide-react';
 import { roleCanAccessRoute, hasRole } from '../lib/permissions/rbac';
 
 export type AppNavItem = {
   to: AuthenticatedContentPath | '/morador';
   label: string;
-  emoji: string;
+  icon: LucideIcon;
   end?: boolean;
 };
 
@@ -13,7 +15,7 @@ export type AppNavItem = {
 export const APP_NAV_ITEMS: AppNavItem[] = AUTHENTICATED_NAV_SPEC.map((n) => ({
   to: n.path,
   label: n.label,
-  emoji: n.emoji,
+  icon: n.icon,
   ...(n.end ? { end: true as const } : {}),
 }));
 
@@ -21,7 +23,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = AUTHENTICATED_NAV_SPEC.map((n) => ({
 const MORADOR_HOME_ITEM: AppNavItem = {
   to: '/morador',
   label: 'Início',
-  emoji: '🏠',
+  icon: LayoutDashboard,
   end: true,
 };
 

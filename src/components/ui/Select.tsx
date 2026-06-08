@@ -3,7 +3,7 @@ import { cn, focusRingClass, transitionInteractiveClass } from '../../lib/cn';
 
 const SELECT_BASE = [
   'w-full min-w-0 px-3 py-2 pr-10 text-sm text-text-main',
-  'bg-surface-background border border-surface-border rounded-lg shadow-atomic',
+  'bg-surface-card border border-surface-border rounded-xl shadow-atomic',
   focusRingClass,
   transitionInteractiveClass,
 ].join(' ');

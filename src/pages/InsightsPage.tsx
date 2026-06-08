@@ -61,7 +61,7 @@ const InsightsPage: React.FC = () => {
   const partial = bundle.partialErrors?.join(' ');
 
   return (
-    <div className="page w-full space-y-8" id="insights-page">
+    <div className="page w-full max-w-full min-w-0 overflow-x-hidden space-y-8" id="insights-page">
       <PageHeader
         eyebrow="Inteligência"
         title="Insights operacionais"

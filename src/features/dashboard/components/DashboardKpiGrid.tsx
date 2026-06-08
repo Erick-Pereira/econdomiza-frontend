@@ -44,21 +44,22 @@ function KpiCard({ tone, label, value, hint }: KpiCardProps) {
   return (
     <article
       className={cn(
-        'flex items-start gap-4 rounded-xl border border-surface-border bg-surface-card p-5',
+        'flex items-start gap-3 sm:gap-4 rounded-xl border border-surface-border bg-surface-card p-4 sm:p-5',
         'shadow-macro-sm transition-shadow duration-200 ease-in-out',
         'hover:border-brand-primary/25 hover:shadow-macro-md'
       )}
     >
       <div
-        className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', iconWrap)}
+        className={cn('flex h-10 sm:h-11 w-10 sm:w-11 shrink-0 items-center justify-center rounded-lg sm:rounded-xl', iconWrap)}
         aria-hidden
       >
         <Icon className={cn('h-5 w-5', iconColor)} />
+        <Icon className={cn('h-4 sm:h-5 w-4 sm:w-5', iconColor)} />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">{label}</p>
-        <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-text-main">{value}</p>
-        <p className="mt-1 text-sm leading-snug text-text-muted">{hint}</p>
+        <p className="mt-2 text-lg sm:text-2xl font-bold tabular-nums tracking-tight text-text-main">{value}</p>
+        <p className="mt-1.5 text-xs sm:text-sm leading-snug text-text-muted">{hint}</p>
       </div>
     </article>
   );

@@ -81,7 +81,7 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
   }
 
   return (
-    <div className="notif-prefs-panel">
+    <div className="notif-prefs-panel w-full max-w-full min-w-0 space-y-6 overflow-x-hidden">
       {error && (
         <div className="banner banner--error" role="alert">
           {error}
@@ -89,13 +89,13 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
       )}
       {okMsg && <div className="banner banner--info">{okMsg}</div>}
 
-      <form className="notif-prefs-panel__form" onSubmit={(ev) => void onSave(ev)}>
-        <fieldset className="notif-prefs-fieldset">
+      <form className="notif-prefs-panel__form space-y-6" onSubmit={(ev) => void onSave(ev)}>
+        <fieldset className="notif-prefs-fieldset rounded-3xl border border-surface-border bg-surface-card p-4 shadow-macro-sm">
           <legend>Canais de envio</legend>
-          <p className="op-muted op-small notif-prefs-fieldset__lead">
+          <p className="op-muted op-small notif-prefs-fieldset__lead max-w-4xl">
             Escolha como quer receber avisos do sistema.
           </p>
-          <div className="notif-prefs-channels">
+          <div className="notif-prefs-channels flex flex-wrap gap-3">
             <label className="notif-prefs-toggle">
               <input
                 type="checkbox"
@@ -119,7 +119,7 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
               </span>
             </label>
           </div>
-          <div className="notif-prefs-grid">
+          <div className="notif-prefs-grid grid grid-cols-1 gap-4 md:grid-cols-2">
             <label className="op-field">
               <span>Endereço de e-mail</span>
               <input
@@ -141,12 +141,12 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
           </div>
         </fieldset>
 
-        <fieldset className="notif-prefs-fieldset">
+        <fieldset className="notif-prefs-fieldset rounded-3xl border border-surface-border bg-surface-card p-4 shadow-macro-sm">
           <legend>Alertas de preço</legend>
-          <p className="op-muted op-small notif-prefs-fieldset__lead">
+          <p className="op-muted op-small notif-prefs-fieldset__lead max-w-4xl">
             Tipos de movimento de preço que quer acompanhar.
           </p>
-          <div className="notif-prefs-chips-row">
+          <div className="notif-prefs-chips-row flex flex-wrap gap-3 items-center">
             <label className="notif-prefs-toggle notif-prefs-toggle--inline">
               <input
                 type="checkbox"
@@ -171,7 +171,7 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
               />
               <span>Tendências</span>
             </label>
-            <label className="op-field op-field--inline notif-prefs-severity">
+            <label className="op-field op-field--inline notif-prefs-severity min-w-[16rem]">
               <span>Prioridade mínima</span>
               <select
                 value={form.minimumSeverity}
@@ -185,13 +185,13 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
           </div>
         </fieldset>
 
-        <fieldset className="notif-prefs-fieldset">
+        <fieldset className="notif-prefs-fieldset rounded-3xl border border-surface-border bg-surface-card p-4 shadow-macro-sm">
           <legend>Silêncio temporário</legend>
-          <p className="op-muted op-small notif-prefs-fieldset__lead">
+          <p className="op-muted op-small notif-prefs-fieldset__lead max-w-4xl">
             Pausar notificações até uma data. Marque «Aplicar ao gravar» para guardar estas datas; use o botão
             abaixo para limpar.
           </p>
-          <div className="notif-prefs-grid">
+          <div className="notif-prefs-grid grid grid-cols-1 gap-4 md:grid-cols-2">
             <label className="op-field">
               <span>Silêncio global até</span>
               <input
@@ -209,7 +209,7 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
               />
             </label>
           </div>
-          <label className="notif-prefs-toggle notif-prefs-toggle--inline" style={{ marginTop: '0.75rem' }}>
+          <label className="notif-prefs-toggle notif-prefs-toggle--inline mt-3">
             <input
               type="checkbox"
               checked={applyMuteSnooze}
@@ -219,7 +219,7 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
           </label>
         </fieldset>
 
-        <div className="notif-prefs-actions">
+        <div className="notif-prefs-actions flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <button type="submit" className="btn-primary" disabled={isMutating}>
             {isMutating ? 'Salvando…' : 'Salvar preferências'}
           </button>

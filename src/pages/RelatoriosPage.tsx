@@ -39,7 +39,7 @@ const RelatoriosPage: React.FC = () => {
   const yoyRows = extractYearOverYearRows(yoy);
 
   return (
-    <div className="page w-full space-y-8" id="relatorios-page">
+    <div className="page w-full max-w-full min-w-0 overflow-x-hidden space-y-8" id="relatorios-page">
       <PageHeader
         eyebrow="Consolidação"
         title="Relatórios"
@@ -108,7 +108,7 @@ const RelatoriosPage: React.FC = () => {
       </section>
 
       {yoyRows.length > 0 && (
-        <section className="overflow-x-auto rounded-xl border border-surface-border bg-surface-card shadow-macro-sm">
+        <section className="rounded-xl border border-surface-border bg-surface-card shadow-macro-sm overflow-x-auto">
           <header className="border-b border-surface-border px-5 py-4">
             <h2 className="text-base font-semibold text-text-main">Comparativo ano a ano</h2>
           </header>

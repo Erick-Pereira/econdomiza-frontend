@@ -130,7 +130,7 @@ const ExpenseCompliancePage: React.FC = () => {
   }
 
   return (
-    <div id="expense-compliance">
+    <div id="expense-compliance" className="w-full max-w-full min-w-0 space-y-6 overflow-x-hidden">
       <PageHeader
         eyebrow="Conformidade da despesa"
         title="Achados e validações"
@@ -143,7 +143,7 @@ const ExpenseCompliancePage: React.FC = () => {
       />
       {error && <div className="banner banner--error">{error}</div>}
 
-      <div className="op-detail-toolbar">
+      <div className="op-detail-toolbar flex flex-col gap-3 rounded-xl border border-surface-border bg-surface-card p-4 shadow-macro-sm sm:flex-row sm:items-center sm:justify-between">
         <button
           type="button"
           className="btn-small secondary"
@@ -162,9 +162,9 @@ const ExpenseCompliancePage: React.FC = () => {
         </button>
       </div>
 
-      <section className="card compliance-expense-summary">
+      <section className="card compliance-expense-summary rounded-xl border border-surface-border bg-surface-card p-4 shadow-macro-sm">
         <h3 className="compliance-expense-summary__title">Indicadores desta despesa</h3>
-        <dl className="op-kpi-grid">
+        <dl className="op-kpi-grid grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <div>
             <dt>Score</dt>
             <dd>{score != null ? score : '—'}</dd>
@@ -221,7 +221,7 @@ const ExpenseCompliancePage: React.FC = () => {
                 <h3 className="compliance-finding-card__rule">{pickStr(f, 'ruleCode', 'RuleCode')}</h3>
                 <p className="compliance-finding-card__title">{pickStr(f, 'title', 'Title')}</p>
               </div>
-              <div className="op-list-badges">
+              <div className="op-list-badges flex flex-wrap gap-2">
                 <span className={badgeForStatus(status)}>{status}</span>
                 <span className={sevClass}>{sev}</span>
                 <span className="op-badge op-badge--info">{origin}</span>
@@ -233,8 +233,10 @@ const ExpenseCompliancePage: React.FC = () => {
                 )}
               </div>
             </header>
-            <p className="compliance-finding-card__desc">{pickStr(f, 'description', 'Description')}</p>
-            <dl className="compliance-finding-meta">
+            <p className="compliance-finding-card__desc text-sm leading-6 text-text-muted">
+              {pickStr(f, 'description', 'Description')}
+            </p>
+            <dl className="compliance-finding-meta grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <dt>Avaliado (UTC)</dt>
                 <dd>{evaluated ? formatDateTimePtBr(evaluated) : '—'}</dd>
@@ -275,13 +277,13 @@ const ExpenseCompliancePage: React.FC = () => {
               </details>
             )}
 
-            <div className="compliance-finding-block">
+            <div className="compliance-finding-block space-y-3 rounded-2xl border border-surface-border bg-surface-muted/60 p-4">
               <h4>Evidências (IDs de documento)</h4>
               <p className="op-small op-muted">
                 Informe os IDs dos documentos (GUID), separados por vírgula.
               </p>
               <textarea
-                className="compliance-textarea"
+                className="compliance-textarea min-h-[96px] w-full min-w-0 rounded-lg border border-surface-border bg-surface-background px-3 py-2 text-sm text-text-main shadow-atomic"
                 rows={2}
                 value={evidenceDrafts[id] ?? ''}
                 onChange={(e) => setEvidenceDrafts((p) => ({ ...p, [id]: e.target.value }))}
@@ -297,9 +299,9 @@ const ExpenseCompliancePage: React.FC = () => {
               </button>
             </div>
 
-            <div className="compliance-finding-block">
+            <div className="compliance-finding-block space-y-3 rounded-2xl border border-surface-border bg-surface-muted/60 p-4">
               <h4>Comentários</h4>
-              <ul className="compliance-comment-list">
+              <ul className="compliance-comment-list space-y-4">
                 {comments.map((c) => {
                   if (!c || typeof c !== 'object') return null;
                   const row = c as Record<string, unknown>;
@@ -318,7 +320,7 @@ const ExpenseCompliancePage: React.FC = () => {
                 })}
               </ul>
               <textarea
-                className="compliance-textarea"
+                className="compliance-textarea min-h-[96px] w-full min-w-0 rounded-lg border border-surface-border bg-surface-background px-3 py-2 text-sm text-text-main shadow-atomic"
                 rows={2}
                 value={commentDrafts[id] ?? ''}
                 onChange={(e) => setCommentDrafts((p) => ({ ...p, [id]: e.target.value }))}
@@ -335,13 +337,12 @@ const ExpenseCompliancePage: React.FC = () => {
             </div>
 
             {status === 'OUTSTANDING' && (
-              <div className="compliance-finding-block compliance-finding-block--waive">
+              <div className="compliance-finding-block compliance-finding-block--waive space-y-3 rounded-2xl border border-status-warning/30 bg-status-warning/10 p-4">
                 <h4>Override (exceção) com justificativa</h4>
                 <p className="op-small op-muted">Gera trilho de auditoria no serviço de processamento.</p>
                 <textarea
-                  className="compliance-textarea"
+                  className="compliance-textarea min-h-[120px] w-full min-w-0 rounded-lg border border-surface-border bg-surface-background px-3 py-2 text-sm text-text-main shadow-atomic"
                   rows={3}
-                  value={waiveDrafts[id] ?? ''}
                   onChange={(e) => setWaiveDrafts((p) => ({ ...p, [id]: e.target.value }))}
                   placeholder="Justificativa obrigatória para auditoria…"
                 />

@@ -69,7 +69,7 @@ const ComprasPage: React.FC = () => {
   }
 
   return (
-    <div className="page w-full space-y-8" id="compras-page">
+    <div className="page w-full max-w-full min-w-0 overflow-x-hidden space-y-8" id="compras-page">
       <PageHeader
         eyebrow="Governança"
         title="Aprovação de despesas"

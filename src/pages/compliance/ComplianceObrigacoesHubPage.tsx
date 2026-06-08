@@ -229,34 +229,43 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
   };
 
   return (
-    <div className="obligation-hub" id="obligation-hub">
-      <PageHeader
-        eyebrow="Inspeções e obrigações legais"
-        title="Obrigações do condomínio"
-        description="Conformidade regulatória na auditoria do condomínio: vistorias, licenças, AVCB e prazos — apoio à fiscalização, não gestão operacional."
-        layout="stack"
-      />
+    <div className="obligation-hub px-4 md:px-6 lg:px-8 space-y-6 md:space-y-8" id="obligation-hub">
+      <div className="mb-6">
+        <PageHeader
+          eyebrow="Inspeções e obrigações legais"
+          title="Obrigações do condomínio"
+          description="Conformidade regulatória na auditoria do condomínio: vistorias, licenças, AVCB e prazos — apoio à fiscalização, não gestão operacional."
+          layout="stack"
+        />
+      </div>
 
-      {error && (
-        <div className="banner banner--error" role="alert">
-          {error}
-        </div>
-      )}
+      {(error || alertaTopo) && (
+        <div className="space-y-2 mb-4">
+          {error && (
+            <div className="banner banner--error rounded-2xl border p-4 shadow-sm" role="alert">
+              {error}
+            </div>
+          )}
 
-      {alertaTopo && (
-        <div className={`banner banner--${alertaTopo.tone}`} role="status">
-          {alertaTopo.text}
+          {alertaTopo && (
+            <div
+              className={`banner banner--${alertaTopo.tone} rounded-2xl border p-4 shadow-sm`}
+              role="status"
+            >
+              {alertaTopo.text}
+            </div>
+          )}
         </div>
       )}
 
       {/* KPIs de Estado */}
-      <Card padding="none">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3">
+      <Card padding="none" className="rounded-2xl border shadow-sm mb-4 md:mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 sm:p-5">
           {(Object.keys(BUCKET_META) as ObrigacaoBucket[]).map((b) => (
             <button
               key={b}
               type="button"
-              className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-colors ${
+              className={`flex flex-col items-center justify-center min-h-[120px] rounded-2xl border-2 bg-surface-background p-4 transition-all hover:shadow-md ${
                 filterBucket === b ? 'border-brand-primary bg-surface-muted' : 'border-surface-border'
               }`}
               onClick={() => setFilterBucket((prev) => (prev === b ? 'todos' : b))}
@@ -272,8 +281,8 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
 
       {/* Strip de Compras Pendentes */}
       {(comprasPendentes > 0 || findings.length > 0) && (
-        <Card padding="lg" hoverEffect={false}>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <Card padding="lg" hoverEffect={false} className="rounded-2xl border shadow-sm mb-4 md:mb-6">
+          <div className="flex flex-col gap-4 lg:flex-row items-start lg:items-center justify-between">
             <div className="flex-1">
               <h3 className="font-semibold text-text-main">Pendências nas compras</h3>
               <p className="text-sm text-text-muted mt-1">
@@ -282,22 +291,28 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Badge variant="neutral">{comprasPendentes} em aberto</Badge>
-              {comprasRisco > 0 && <Badge variant="danger">{comprasRisco} alto risco</Badge>}
+              <Badge variant="neutral" className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium">
+                {comprasPendentes} em aberto
+              </Badge>
+              {comprasRisco > 0 && (
+                <Badge variant="danger" className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium">
+                  {comprasRisco} alto risco
+                </Badge>
+              )}
             </div>
           </div>
         </Card>
       )}
 
       {/* Tabs de Visão */}
-      <div className="flex flex-wrap gap-2 mb-4" role="tablist" aria-label="Vista do hub">
+      <div className="flex gap-2 mt-4 mb-6 overflow-x-auto pb-2 scrollbar-thin" role="tablist" aria-label="Vista do hub">
         <button
           type="button"
           role="tab"
           aria-selected={visao === 'lista'}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all whitespace-nowrap ${
             visao === 'lista'
-              ? 'bg-brand-primary text-white'
+              ? 'bg-brand-primary text-white shadow-sm'
               : 'bg-surface-muted text-text-main hover:bg-surface-border'
           }`}
           onClick={() => setVisao('lista')}
@@ -308,9 +323,9 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
           type="button"
           role="tab"
           aria-selected={visao === 'calendario'}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all whitespace-nowrap ${
             visao === 'calendario'
-              ? 'bg-brand-primary text-white'
+              ? 'bg-brand-primary text-white shadow-sm'
               : 'bg-surface-muted text-text-main hover:bg-surface-border'
           }`}
           onClick={() => setVisao('calendario')}
@@ -321,9 +336,9 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
           type="button"
           role="tab"
           aria-selected={visao === 'compras'}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all whitespace-nowrap ${
             visao === 'compras'
-              ? 'bg-brand-primary text-white'
+              ? 'bg-brand-primary text-white shadow-sm'
               : 'bg-surface-muted text-text-main hover:bg-surface-border'
           }`}
           onClick={() => setVisao('compras')}
@@ -333,9 +348,9 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
       </div>
 
       {/* Filtros */}
-      <Card padding="lg" hoverEffect={false}>
-        <div className="flex flex-col md:flex-row gap-3">
-          <label className="flex-1">
+      <Card padding="lg" hoverEffect={false} className="rounded-2xl border shadow-sm mb-4 md:mb-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+          <label className="flex-1 min-w-0">
             <span className="text-sm font-medium text-text-main">Procurar</span>
             <input
               type="search"
@@ -343,13 +358,13 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               autoComplete="off"
-              className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-surface-border bg-surface-background focus:outline-none focus:ring-2 focus:ring-brand-primary"
+              className="w-full mt-2 rounded-xl border border-surface-border bg-surface-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
             />
           </label>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              className={`px-3 py-2 text-sm rounded-lg font-medium transition-colors ${
+              className={`rounded-xl px-4 py-2.5 text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                 filterBucket === 'todos'
                   ? 'bg-brand-primary text-white'
                   : 'bg-surface-muted text-text-main hover:bg-surface-border'
@@ -362,7 +377,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
               <button
                 key={b}
                 type="button"
-                className={`px-3 py-2 text-sm rounded-lg font-medium transition-colors ${
+                className={`rounded-xl px-4 py-2.5 text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                   filterBucket === b
                     ? 'bg-brand-primary text-white'
                     : 'bg-surface-muted text-text-main hover:bg-surface-border'
@@ -375,11 +390,10 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
           </div>
         </div>
       </Card>
-
       {/* Vista: Lista de Obrigações */}
       {visao === 'lista' && (
-        <section aria-label="Checklist de obrigações">
-          <Card padding="none" hoverEffect={false}>
+        <section aria-label="Checklist de obrigações" className="space-y-4">
+          <Card padding="none" hoverEffect={false} className="rounded-2xl border shadow-sm mb-4 md:mb-6">
             <div className="p-4 border-b border-surface-border">
               <h2 className="font-semibold text-text-main">O que precisa da sua atenção</h2>
               <p className="text-sm text-text-muted mt-1">
@@ -387,7 +401,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="p-4 space-y-3">
+            <div className="p-4 space-y-4">
               {filteredItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <p className="text-text-muted">Nenhuma obrigação neste filtro.</p>
@@ -396,11 +410,21 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
                 filteredItems.map((it) => {
                   const b = bucketForItem(it);
                   return (
-                    <Card key={it.id} padding="lg" hoverEffect={false}>
-                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                    <Card
+                      key={it.id}
+                      padding="lg"
+                      hoverEffect={false}
+                      className="rounded-2xl border shadow-sm transition-all hover:shadow-md"
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <Badge variant={getBadgeVariant(b)}>{BUCKET_META[b].label}</Badge>
+                            <Badge
+                              variant={getBadgeVariant(b)}
+                              className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium"
+                            >
+                              {BUCKET_META[b].label}
+                            </Badge>
                             <span className="text-sm text-text-muted">{it.typeLabel}</span>
                           </div>
                           <h3 className="font-medium text-text-main mb-2">{it.description}</h3>
@@ -447,44 +471,43 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
 
       {/* Vista: Calendário */}
       {visao === 'calendario' && (
-        <section aria-label="Obrigações por mês de vencimento">
-          <Card padding="none" hoverEffect={false}>
+        <section aria-label="Obrigações por mês de vencimento" className="space-y-4">
+          <Card padding="none" hoverEffect={false} className="rounded-2xl border shadow-sm mb-4 md:mb-6">
             {calendarGroups.length === 0 ? (
               <div className="p-4 text-center">
                 <p className="text-text-muted">Nenhum item neste filtro.</p>
               </div>
             ) : (
               calendarGroups.map(({ key, items: group }) => (
-                <div key={key} className="border-b border-surface-border last:border-0 p-4">
+                <div key={key} className="border-b border-surface-border last:border-0 p-4 space-y-4">
                   <h3 className="font-semibold text-text-main mb-3">{formatMonthPt(key)}</h3>
-                  <ul className="space-y-2">
+                  <ul className="space-y-3">
                     {group.map((it) => {
                       const b = bucketForItem(it);
                       return (
-                        <li
-                          key={it.id}
-                          className="flex items-start gap-3 p-3 rounded-lg border border-surface-border bg-surface-muted/30"
-                        >
-                          <span
-                            className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${
-                              b === 'em-dia'
-                                ? 'bg-green-500'
-                                : b === 'pendente'
-                                  ? 'bg-yellow-500'
-                                  : b === 'vencido'
-                                    ? 'bg-red-500'
-                                    : 'bg-orange-500'
-                            }`}
-                            aria-hidden
-                          />
-                          <div className="flex-1">
-                            <strong>{it.typeLabel}</strong>
-                            <p className="text-sm text-text-muted mt-0.5">{it.description}</p>
-                            <p className="text-xs text-text-muted mt-1">
-                              {it.lifecycle === 'completed'
-                                ? `Feito em ${formatDatePt(it.completedAt)}`
-                                : `Vence ${formatDatePt(it.dueDate)} · ${BUCKET_META[b].label}`}
-                            </p>
+                        <li className="rounded-xl border border-surface-border bg-surface-muted/30 p-3" key={it.id}>
+                          <div className="flex items-start gap-3">
+                            <span
+                              className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${
+                                b === 'em-dia'
+                                  ? 'bg-green-500'
+                                  : b === 'pendente'
+                                    ? 'bg-yellow-500'
+                                    : b === 'vencido'
+                                      ? 'bg-red-500'
+                                      : 'bg-orange-500'
+                              }`}
+                              aria-hidden
+                            />
+                            <div className="flex-1 min-w-0">
+                              <strong>{it.typeLabel}</strong>
+                              <p className="text-sm text-text-muted mt-0.5 truncate">{it.description}</p>
+                              <p className="text-xs text-text-muted mt-1">
+                                {it.lifecycle === 'completed'
+                                  ? `Feito em ${formatDatePt(it.completedAt)}`
+                                  : `Vence ${formatDatePt(it.dueDate)} · ${BUCKET_META[b].label}`}
+                              </p>
+                            </div>
                           </div>
                         </li>
                       );
@@ -499,8 +522,8 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
 
       {/* Vista: Fila de Compras */}
       {visao === 'compras' && (
-        <section aria-label="Fila de pendências nas compras">
-          <Card padding="lg" hoverEffect={false}>
+        <section aria-label="Fila de pendências nas compras" className="space-y-4">
+          <Card padding="lg" hoverEffect={false} className="rounded-2xl border shadow-sm mb-4 md:mb-6">
             <h2 className="font-semibold text-text-main mb-4">Documentação e validações nas compras</h2>
             {findingsError && <p className="text-sm text-status-error">{findingsError}</p>}
             {!findingsError && findings.length === 0 ? (
@@ -508,7 +531,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
                 <p className="text-text-muted">Nenhuma pendência global neste momento.</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {findings.map((r, i) => {
                   const eid = strRow(r, 'expenseId', 'ExpenseId');
                   const title = strRow(r, 'title', 'Title');
@@ -517,11 +540,21 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
                   const fid = strRow(r, 'id', 'Id');
                   const high = sev.toUpperCase() === 'HIGH' || sev.toUpperCase() === 'CRITICAL';
                   return (
-                    <Card key={fid + String(i)} padding="lg" hoverEffect={false}>
+                    <Card
+                      key={fid + String(i)}
+                      padding="lg"
+                      hoverEffect={false}
+                      className="rounded-2xl border shadow-sm"
+                    >
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <Badge variant={high ? 'danger' : 'neutral'}>Prioridade {severityPt(sev)}</Badge>
+                            <Badge
+                              variant={high ? 'danger' : 'neutral'}
+                              className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium"
+                            >
+                              Prioridade {severityPt(sev)}
+                            </Badge>
                           </div>
                           <h3 className="font-medium text-text-main">{title}</h3>
                           <p className="text-sm text-text-muted mt-1">
@@ -552,7 +585,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
       )}
 
       {/* Formulário de Nova Obrigação */}
-      <Card padding="lg" hoverEffect={false}>
+      <Card padding="lg" hoverEffect={false} className="rounded-2xl border shadow-sm mb-4 md:mb-6">
         {!canManage ? (
           <div className="text-center py-6">
             <strong className="text-text-main">Modo leitura.</strong>
@@ -561,13 +594,13 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
             </p>
           </div>
         ) : (
-          <form onSubmit={onAdd}>
+          <form onSubmit={onAdd} className="space-y-4">
             <h2 className="font-semibold text-text-main mb-2">Registar nova obrigação ou vistoria</h2>
             <p className="text-sm text-text-muted mb-4">
               Ex.: inspeção de elevadores, limpeza de caixa d'água, licença municipal. Só precisa de uma
               descrição clara; o prazo é opcional mas ajuda o calendário.
             </p>
-            <label className="block mb-3">
+            <label className="block">
               <span className="text-sm font-medium text-text-main">O quê precisa ser feito?</span>
               <input
                 required
@@ -575,10 +608,10 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
                 placeholder="Ex.: Vistoria anual do elevador — contrato com manutenção X"
-                className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-surface-border bg-surface-background focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                className="w-full mt-2 rounded-xl border border-surface-border bg-surface-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
               />
             </label>
-            <label className="block mb-4">
+            <label className="block">
               <span className="text-sm font-medium text-text-main">
                 Prazo ou próxima data prevista (opcional)
               </span>
@@ -586,10 +619,10 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
                 type="date"
                 value={newDue}
                 onChange={(e) => setNewDue(e.target.value)}
-                className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-surface-border bg-surface-background focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                className="w-full mt-2 rounded-xl border border-surface-border bg-surface-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
               />
             </label>
-            <Button type="submit" variant="primary" fullWidth disabled={adding || !condominioId}>
+            <Button type="submit" variant="primary" fullWidth disabled={adding || !condominioId} className="mt-2">
               {adding ? 'Salvando…' : 'Adicionar à lista'}
             </Button>
           </form>
@@ -604,23 +637,25 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
           title="Marcar obrigação como concluída"
           footer={null}
         >
-          <p className="text-sm text-text-muted mb-3">
-            Opcional: deixe uma nota para o conselho (ex.: número do protocolo, data da vistoria).
-          </p>
-          <textarea
-            rows={3}
-            value={completeNotes}
-            onChange={(e) => setCompleteNotes(e.target.value)}
-            placeholder="Notas para histórico…"
-            className="w-full px-3 py-2 text-sm rounded-lg border border-surface-border bg-surface-background focus:outline-none focus:ring-2 focus:ring-brand-primary mb-4"
-          />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setCompleteForId(null)}>
-              Cancelar
-            </Button>
-            <Button variant="primary" disabled={isMutating} onClick={() => void onComplete()}>
-              Confirmar
-            </Button>
+          <div className="space-y-4 p-6">
+            <p className="text-sm text-text-muted">
+              Opcional: deixe uma nota para o conselho (ex.: número do protocolo, data da vistoria).
+            </p>
+            <textarea
+              rows={3}
+              value={completeNotes}
+              onChange={(e) => setCompleteNotes(e.target.value)}
+              placeholder="Notas para histórico…"
+              className="w-full rounded-xl border border-surface-border bg-surface-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setCompleteForId(null)}>
+                Cancelar
+              </Button>
+              <Button variant="primary" disabled={isMutating} onClick={() => void onComplete()}>
+                Confirmar
+              </Button>
+            </div>
           </div>
         </Modal>
       )}

@@ -19,24 +19,39 @@ export const AUTHENTICATED_PAGE_LOADERS = {
 
 export type AuthenticatedContentPath = keyof typeof AUTHENTICATED_PAGE_LOADERS;
 
+import type { LucideIcon } from 'lucide-react';
+import {
+  LayoutDashboard,
+  ShieldCheck,
+  Receipt,
+  Handshake,
+  Package,
+  ClipboardList,
+  BellRing,
+  Lightbulb,
+  FileText,
+  MessageSquareMore,
+  Settings,
+} from 'lucide-react';
+
 type NavSpecEntry = {
   path: AuthenticatedContentPath;
   label: string;
-  emoji: string;
+  icon: LucideIcon;
   end?: boolean;
 };
 
 /** Ordem do menu lateral (auditoria de gastos — ver PRODUCT_POSITIONING). */
 export const AUTHENTICATED_NAV_SPEC: readonly NavSpecEntry[] = [
-  { path: '/dashboard', label: 'Painel', emoji: '📊', end: true },
-  { path: '/auditoria', label: 'Auditoria', emoji: '🔍' },
-  { path: '/compras', label: 'Despesas', emoji: '🛒' },
-  { path: '/fornecedores', label: 'Fornecedores', emoji: '🤝' },
-  { path: '/produtos', label: 'Produtos', emoji: '📦' },
-  { path: '/conformidades', label: 'Conformidade', emoji: '📋' },
-  { path: '/alertas', label: 'Alertas', emoji: '🔔' },
-  { path: '/insights', label: 'Insights', emoji: '💡' },
-  { path: '/relatorios', label: 'Relatórios', emoji: '📑' },
-  { path: '/notificacoes', label: 'Notificações', emoji: '📣' },
-  { path: '/configuracoes', label: 'Conta', emoji: '⚙️' },
+  { path: '/dashboard', label: 'Painel', icon: LayoutDashboard, end: true },
+  { path: '/auditoria', label: 'Auditoria', icon: ShieldCheck },
+  { path: '/compras', label: 'Despesas', icon: Receipt },
+  { path: '/fornecedores', label: 'Fornecedores', icon: Handshake },
+  { path: '/produtos', label: 'Produtos', icon: Package },
+  { path: '/conformidades', label: 'Conformidade', icon: ClipboardList },
+  { path: '/alertas', label: 'Alertas', icon: BellRing },
+  { path: '/insights', label: 'Insights', icon: Lightbulb },
+  { path: '/relatorios', label: 'Relatórios', icon: FileText },
+  { path: '/notificacoes', label: 'Notificações', icon: MessageSquareMore },
+  { path: '/configuracoes', label: 'Conta', icon: Settings },
 ];

@@ -33,7 +33,7 @@ const ConfiguracoesPage: React.FC = () => {
   }
 
   return (
-    <div className="page w-full space-y-8" id="configuracoes-page">
+    <div className="page w-full max-w-full min-w-0 overflow-x-hidden space-y-8" id="configuracoes-page">
       <PageHeader
         eyebrow="Conta"
         title="Meu perfil"

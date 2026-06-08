@@ -41,7 +41,7 @@ function StatCard({ label, value, hint, icon: Icon, tone }: StatCardProps) {
 
 export function AuditoriaStatsGrid({ stats }: { stats: AuditoriaStats }) {
   return (
-    <section className="grid grid-cols-2 gap-4 lg:grid-cols-4" aria-label="Resumo da auditoria">
+    <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" aria-label="Resumo da auditoria">
       <StatCard
         label="Despesas"
         value={stats.total}

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Navigate } from 'react-router-dom';
+import { LogOut, Menu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import SidebarNav from '../../components/layout/SidebarNav';
 import { LazyShell, RouteFallback } from '../../components/LazyShell';
@@ -87,7 +88,9 @@ export function MainLayoutRefactored() {
           aria-label="Navegação principal"
         >
           <div className="mb-6 mt-8 flex items-center gap-3 border-b border-white/20 pb-4">
-            <p className="text-xs font-semibold uppercase tracking-widest text-white/70">SIMC-AG</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-white/75">
+              {PRODUCT_COPY.brandKicker}
+            </p>
             <h2 className="font-secondary text-xl font-semibold leading-tight text-white drop-shadow-md">
               {PRODUCT_COPY.brandTitle}
             </h2>
@@ -106,7 +109,7 @@ export function MainLayoutRefactored() {
                 className="flex h-[2.5rem] w-full items-center gap-3 rounded-xl bg-white/10 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/40 md:hidden"
                 aria-label="Encerrar sessão e sair"
               >
-                <span aria-hidden>🚪</span> Sair
+                <LogOut className="h-5 w-5 shrink-0 text-white/80" aria-hidden /> Sair
               </button>
             </li>
           </ul>
@@ -127,7 +130,7 @@ export function MainLayoutRefactored() {
                 onClick={handleLogout}
                 className="mt-3 hidden w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-medium text-white hover:bg-white/20 md:flex"
               >
-                <span aria-hidden>🚪</span> Sair
+                <LogOut className="h-5 w-5 shrink-0 text-white/80" aria-hidden /> Sair
               </button>
             </div>
           )}
@@ -145,14 +148,7 @@ export function MainLayoutRefactored() {
               aria-label="Abrir menu"
               aria-expanded={sidebarOpen}
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
+              <Menu className="h-5 w-5" aria-hidden />
             </button>
             <div className="flex-1 overflow-hidden">
               <p className="truncate text-base font-semibold text-[var(--text-main)]">

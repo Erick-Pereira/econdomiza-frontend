@@ -51,7 +51,7 @@ const FornecedoresPage: React.FC = () => {
   const quality = qualityQuery.data;
 
   return (
-    <div className="page w-full space-y-8" id="fornecedores-page">
+    <div className="page w-full max-w-full min-w-0 overflow-x-hidden space-y-8" id="fornecedores-page">
       <PageHeader
         eyebrow="Cadastro"
         title="Fornecedores"
@@ -114,7 +114,7 @@ const FornecedoresPage: React.FC = () => {
       ) : (
         <div className="space-y-6">
           {quality?.summary && (
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 ['Total', quality.summary.totalSuppliers],
                 ['Recomendados', quality.summary.recommendedCount],

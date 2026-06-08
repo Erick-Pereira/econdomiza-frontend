@@ -1,5 +1,6 @@
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { Menu, LogOut } from 'lucide-react';
 import { useAuthSession } from '../../context/AuthSessionContext';
 import { LazyShell, RouteFallback } from '../../components/LazyShell';
 import SidebarNav from '../../components/layout/SidebarNav';
@@ -98,9 +99,7 @@ export function MainLayout() {
         aria-label={sidebarOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
         aria-expanded={sidebarOpen}
       >
-        <span aria-hidden className="btn-menu__glyph">
-          ☰
-        </span>{' '}
+        <Menu className="h-5 w-5" aria-hidden />
         <span className="btn-menu__label">Menu</span>
       </button>
 
@@ -127,7 +126,7 @@ export function MainLayout() {
                 className="menu-link btn-logout"
                 aria-label="Encerrar sessão e sair"
               >
-                <span aria-hidden>🚪</span> Sair
+                <LogOut className="h-5 w-5 shrink-0" aria-hidden /> Sair
               </button>
             </li>
           </ul>
