@@ -300,7 +300,7 @@ export function matchExpenseItem(
       score = 80;
     } else {
       const tokensA = key.split('-').filter(Boolean);
-      const tokensB = itemKey.split('-'.filter(Boolean)).length;
+      const tokensB = itemKey.split('-').filter(Boolean);
       const overlap = tokensA.filter((t) => tokensB.includes(t)).length;
       score = Math.round((100 * overlap) / Math.max(tokensA.length, tokensB.length));
     }
