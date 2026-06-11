@@ -3,6 +3,7 @@ import { Check, RefreshCw, Search } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageFatalErrorState } from '../components/layout/PageLoadStates';
 import { Badge, Button, Input, Select, SkeletonLoading } from '../components/ui';
+import { EMPTY_VARIANTS } from '../components/ui/empty-state-variants';
 import { useAlertasList } from '../features/alertas/hooks/useAlertasList';
 import { useMarkAlertRead } from '../features/alertas/hooks/useMarkAlertRead';
 import { formatAlertDatePtBr } from '../lib/alert-row';
@@ -129,9 +130,10 @@ const AlertasPage: React.FC = () => {
         </header>
 
         {filtered.length === 0 ? (
-          <div className="px-5 py-12 text-center text-sm text-text-muted">
-            Nenhum alerta corresponde aos filtros selecionados.
-          </div>
+          EMPTY_VARIANTS.emptyList({
+            title: 'Nenhum alerta neste filtro',
+            description: 'Ajuste os filtros ou aguarde novos alertas do condomínio.',
+          })
         ) : (
           <ul className="divide-y divide-surface-border" role="list">
             {filtered.map((alert) => (
@@ -151,8 +153,8 @@ const AlertasPage: React.FC = () => {
                     {alert.categoria} · {alert.tipo}
                   </p>
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
-                  <time className="text-xs text-text-muted" dateTime={alert.createdAt}>
+                <div className="flex w-full shrink-0 flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
+                  <time className="text-xs text-text-muted sm:text-right" dateTime={alert.createdAt}>
                     {formatAlertDatePtBr(alert.createdAt)}
                   </time>
                   {alert.status === 'aberto' && (
@@ -160,6 +162,7 @@ const AlertasPage: React.FC = () => {
                       type="button"
                       variant="outline"
                       size="sm"
+                      className="w-full sm:w-auto"
                       disabled={markRead.isPending && markRead.variables === alert.id}
                       icon={<Check className="h-4 w-4" aria-hidden />}
                       onClick={() => {

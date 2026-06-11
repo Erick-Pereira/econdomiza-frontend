@@ -70,6 +70,7 @@ module.exports = {
         // Marca — Identidade visual da aplicação
         brand: {
           primary: '#1a365d',
+          'primary-light': '#2c5282',
           secondary: '#2c5282',
           accent: '#e9d8fd',
         },

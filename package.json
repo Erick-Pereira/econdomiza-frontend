@@ -9,6 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test e2e/demo-banca.spec.ts --grep \"Smoke\"",
+    "test:e2e:demo": "playwright test e2e/demo-banca.spec.ts --grep \"Demo banca\"",
+    "test:e2e:ui": "playwright test --ui",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{html,json}\" \"auth.html\"",
@@ -32,15 +35,18 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.14",
+    "chart.js": "^4.5.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.40.0",
     "react": "^19.0.0",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.15.0",
     "react-toastify": "^11.1.0",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.0",
     "@types/react": "^19.0.0",

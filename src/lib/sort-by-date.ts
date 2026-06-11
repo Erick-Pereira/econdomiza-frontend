@@ -22,6 +22,14 @@ export function sortByCreatedAtDesc<T extends { createdAt: string }>(rows: T[]):
   );
 }
 
+export function sortRowsByRecency(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  return [...rows].sort(
+    (a, b) =>
+      readIsoTimestamp(b, 'createdAt', 'CreatedAt', 'updatedAt', 'UpdatedAt', 'issueDate', 'IssueDate') -
+      readIsoTimestamp(a, 'createdAt', 'CreatedAt', 'updatedAt', 'UpdatedAt', 'issueDate', 'IssueDate')
+  );
+}
+
 export function pickCreatedAtIso(item: Record<string, unknown>): string {
   return String(
     item.createdAt ??

@@ -3,6 +3,7 @@ import { extractUploadPipelineWarning } from '../../../lib/econdomiza-api';
 import { formatApiError } from '../../../lib/api-error-message';
 import { EcondomizaApi } from '../../../services';
 import { extractExpenseRows, mapAuditoriaExpenseRow, type AuditoriaExpenseRow } from '../lib/expense-map';
+import { sortRowsByRecency } from '../../../lib/sort-by-date';
 import { auditoriaKeys } from '../query-keys';
 
 export type { AuditoriaExpenseRow };
@@ -40,7 +41,7 @@ export function useAuditoriaData() {
       return res.data;
     },
     select: (data) => {
-      const rows = extractExpenseRows(data).map(mapAuditoriaExpenseRow);
+      const rows = sortRowsByRecency(extractExpenseRows(data)).map(mapAuditoriaExpenseRow);
       return { expenses: rows, stats: computeStats(rows) };
     },
     staleTime: 2 * 60 * 1000,

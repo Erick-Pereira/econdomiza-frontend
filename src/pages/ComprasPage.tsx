@@ -1,18 +1,25 @@
 import React, { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
-import { RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 import { PageHeader } from '../components/layout/PageHeader';
 
 import { PageFatalErrorState } from '../components/layout/PageLoadStates';
 
-import { Button, Select, SkeletonLoading } from '../components/ui';
+import { Button, SkeletonLoading } from '../components/ui';
+
+import { EMPTY_VARIANTS } from '../components/ui/empty-state-variants';
+
+import { useToast } from '../components/ui/useToast';
 
 import { useAuth } from '../context/AuthContext';
 
 import { mapAuditoriaExpenseRow } from '../features/auditoria/lib/expense-map';
 
 import { ComprasExpenseListItem } from '../features/compras/components/ComprasExpenseListItem';
+
+import { ExpenseIntentFilterBar } from '../features/compras/components/ExpenseIntentFilterBar';
 
 import { useComprasApproval, useComprasExpenses } from '../features/compras/hooks/useComprasExpenses';
 
@@ -27,12 +34,21 @@ import { cn } from '../lib/cn';
 const moneyBr = (n: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 
+function parseIntentFilter(raw: string | null): ComprasFilterKey {
+  if (!raw) return '';
+  return COMPRAS_FILTERS.some((f) => f.value === raw) ? (raw as ComprasFilterKey) : '';
+}
+
 const ComprasPage: React.FC = () => {
   const { profile } = useAuth();
+  const { add } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const canApprove = canApproveCompras(profile?.role);
 
-  const [filter, setFilter] = useState<ComprasFilterKey>('');
+  const intentFromUrl = searchParams.get('intencao');
+  const filter = useMemo(() => parseIntentFilter(intentFromUrl), [intentFromUrl]);
+  const [approvalErrors, setApprovalErrors] = useState<Record<string, string>>({});
 
   const { data, isLoading, isFetching, isError, error, refetch } = useComprasExpenses(filter);
 
@@ -44,13 +60,36 @@ const ComprasPage: React.FC = () => {
     [data?.rows]
   );
 
+  const handleFilterChange = (value: ComprasFilterKey) => {
+    if (value) {
+      setSearchParams({ intencao: value }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  };
+
   const handleApproval = async (id: string, approve: boolean) => {
     try {
       await approval.mutateAsync({ id, approve });
+      setApprovalErrors((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      add(approve ? 'Despesa aprovada.' : 'Despesa reprovada.', 'success');
     } catch (e) {
-      alert(formatApiError(e));
+      const msg = formatApiError(e);
+      add(msg, 'error');
+      setApprovalErrors((prev) => ({ ...prev, [id]: msg }));
     }
   };
+
+  const emptyDescription =
+    filter === 'approval:PendingApproval'
+      ? 'Não há despesas aguardando aprovação neste momento.'
+      : filter === 'processing:Failed'
+        ? 'Nenhuma despesa com falha de processamento.'
+        : 'Envie uma nota fiscal em Auditoria para iniciar o fluxo de aprovação.';
 
   if (isLoading) {
     return (
@@ -75,7 +114,7 @@ const ComprasPage: React.FC = () => {
         title="Aprovação de despesas"
         description={
           canApprove
-            ? 'Revise despesas cadastradas pela administradora e registre aprovação ou reprovação.'
+            ? 'Revise despesas por intenção (aprovação, processamento, falhas) — mesma visão disponível em Auditoria.'
             : 'Consulta de despesas do condomínio — aprovação restrita a Síndico e Conselho.'
         }
         toolbar={
@@ -92,18 +131,7 @@ const ComprasPage: React.FC = () => {
         }
       />
 
-      <div className="rounded-xl border border-surface-border bg-surface-card p-4 shadow-macro-sm">
-        <div className="w-full sm:max-w-md">
-          <Select
-            label="Filtrar por estado"
-            id="compras-filter"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as ComprasFilterKey)}
-            options={COMPRAS_FILTERS}
-            icon={<SlidersHorizontal className="h-4 w-4" aria-hidden />}
-          />
-        </div>
-      </div>
+      <ExpenseIntentFilterBar mode="select" value={filter} onChange={handleFilterChange} />
 
       {isError && (
         <div className="banner banner--error" role="alert">
@@ -120,7 +148,12 @@ const ComprasPage: React.FC = () => {
         aria-busy={isFetching}
       >
         {expenses.length === 0 ? (
-          <p className="px-5 py-12 text-center text-sm text-text-muted">Nenhuma despesa encontrada.</p>
+          EMPTY_VARIANTS.emptyList({
+            title: 'Nenhuma despesa encontrada',
+            description: emptyDescription,
+            actionLabel: 'Ir para Auditoria',
+            actionTo: '/auditoria',
+          })
         ) : (
           <ul className="divide-y divide-surface-border" role="list">
             {expenses.map((exp) => (
@@ -129,6 +162,7 @@ const ComprasPage: React.FC = () => {
                 expense={exp}
                 canApprove={canApprove}
                 approvalPending={approval.isPending}
+                inlineError={approvalErrors[exp.id]}
                 onApprove={(id, approve) => void handleApproval(id, approve)}
                 formatMoney={moneyBr}
               />

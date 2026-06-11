@@ -13,7 +13,7 @@ import { AUTH_COPY } from '../constants';
 export type EstablishSessionFailureCode = 'no_tokens' | 'no_profile' | 'api';
 
 export type EstablishSessionResult =
-  | { ok: true }
+  | { ok: true; profile: UserProfile }
   | { ok: false; code: EstablishSessionFailureCode; message: string };
 
 /**
@@ -37,7 +37,7 @@ export async function establishSessionFromAuthEnvelope(
       return { ok: false, code: 'no_profile', message: AUTH_COPY.loginNoProfile };
     }
     await loginAction(profile, tokens);
-    return { ok: true };
+    return { ok: true, profile };
   } catch (err: unknown) {
     return { ok: false, code: 'api', message: formatApiError(err) };
   }

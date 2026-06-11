@@ -53,13 +53,16 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const uniqueId = id ?? autoId;
 
     return (
-      <div className={`w-full ${className}`}>
+      <div className={cn('w-full min-w-0', className)}>
         {label && (
-          <label htmlFor={uniqueId} className="block text-sm font-medium text-text-main mb-1.5">
+          <label
+            htmlFor={uniqueId}
+            className="mb-1.5 block text-sm font-medium leading-snug text-text-main whitespace-normal"
+          >
             {label}
           </label>
         )}
-        <div className="relative w-full overflow-hidden rounded-lg">
+        <div className="relative w-full min-w-0 rounded-xl">
           {icon && (
             <div className="pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-text-muted">
               {icon}
@@ -68,7 +71,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           <select
             ref={ref}
             id={uniqueId}
-            className={cn(SELECT_BASE, 'relative appearance-none', icon && 'pl-10', error && ERROR_STYLES)}
+            className={cn(
+              SELECT_BASE,
+              'relative min-h-[2.75rem] appearance-none',
+              icon && 'pl-10',
+              error && ERROR_STYLES
+            )}
             aria-invalid={error ? 'true' : undefined}
             aria-describedby={error ? `${uniqueId}-error` : helperText ? `${uniqueId}-helper` : undefined}
             {...props}

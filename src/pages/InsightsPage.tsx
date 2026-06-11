@@ -3,6 +3,7 @@ import { RefreshCw, Sparkles } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageFatalErrorState, PageLoadingState } from '../components/layout/PageLoadStates';
 import { Badge, Button } from '../components/ui';
+import { EMPTY_VARIANTS } from '../components/ui/empty-state-variants';
 import {
   useInsightsBundle,
   useInsightsNarrative,
@@ -159,7 +160,12 @@ const InsightsPage: React.FC = () => {
           <h2 className="text-base font-semibold text-text-main">Insights detalhados</h2>
         </header>
         {items.length === 0 ? (
-          <p className="px-5 py-12 text-center text-sm text-text-muted">Nenhum insight disponível.</p>
+          EMPTY_VARIANTS.emptyList({
+            title: 'Nenhum insight disponível',
+            description: 'Recalcule os insights ou aguarde novas despesas e alertas no condomínio.',
+            actionLabel: 'Recalcular insights',
+            onAction: () => void handleRecalc(),
+          })
         ) : (
           <ul className="divide-y divide-surface-border" role="list">
             {items.map((it) => (

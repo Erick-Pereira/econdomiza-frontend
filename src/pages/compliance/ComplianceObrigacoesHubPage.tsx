@@ -15,8 +15,9 @@ import {
 } from '../../features/conformidades/hooks/useConformidadesHubData';
 import {
   BUCKET_META,
-  bucketForItem,
+  bucketForDisplay,
   DIAS_PARA_CRITICO,
+  MORADOR_VIEW_BUCKETS,
   pickNum,
   severityPt,
   strRow,
@@ -29,6 +30,10 @@ type HubVisao = 'lista' | 'calendario' | 'compras';
 const ComplianceObrigacoesHubPage: React.FC = () => {
   const { profile } = useAuthSession();
   const canManage = canManageObrigacoes(profile?.role);
+  const mergeCriticoIntoVencido = !canManage;
+  const displayBuckets: ObrigacaoBucket[] = canManage
+    ? (Object.keys(BUCKET_META) as ObrigacaoBucket[])
+    : MORADOR_VIEW_BUCKETS;
   const [searchParams, setSearchParams] = useSearchParams();
   const visao = (searchParams.get('visao') as HubVisao) || 'lista';
   const setVisao = (v: HubVisao) => {
@@ -73,18 +78,39 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
       critico: 0,
     };
     for (const it of items) {
-      c[bucketForItem(it)] += 1;
+      c[bucketForDisplay(it, mergeCriticoIntoVencido)] += 1;
     }
     return c;
-  }, [items]);
+  }, [items, mergeCriticoIntoVencido]);
 
   const comprasPendentes = pickNum(dashboard, 'outstandingFindings', 'OutstandingFindings');
   const comprasRisco = pickNum(dashboard, 'highRiskOpen', 'HighRiskOpen');
 
+  const severityRank = (sev: string): number => {
+    const u = sev.toUpperCase();
+    if (u === 'CRITICAL') return 0;
+    if (u === 'HIGH') return 1;
+    if (u === 'MEDIUM' || u === 'WARNING') return 2;
+    if (u === 'LOW' || u === 'INFO') return 3;
+    return 4;
+  };
+
+  const sortedFindings = useMemo(() => {
+    return [...findings].sort((a, b) => {
+      const sa = severityRank(strRow(a, 'severity', 'Severity'));
+      const sb = severityRank(strRow(b, 'severity', 'Severity'));
+      if (sa !== sb) return sa - sb;
+      const ta = strRow(a, 'title', 'Title');
+      const tb = strRow(b, 'title', 'Title');
+      return ta.localeCompare(tb, 'pt-BR');
+    });
+  }, [findings]);
+
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((it) => {
-      if (filterBucket !== 'todos' && bucketForItem(it) !== filterBucket) return false;
+      const displayBucket = bucketForDisplay(it, mergeCriticoIntoVencido);
+      if (filterBucket !== 'todos' && displayBucket !== filterBucket) return false;
       if (!q) return true;
       return (
         it.description.toLowerCase().includes(q) ||
@@ -92,7 +118,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
         it.typeKey.toLowerCase().includes(q)
       );
     });
-  }, [items, filterBucket, query]);
+  }, [items, filterBucket, query, mergeCriticoIntoVencido]);
 
   const calendarGroups = useMemo(() => {
     const map = new Map<string, ObrigacaoItem[]>();
@@ -175,7 +201,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
   };
 
   const alertaTopo =
-    counts.critico > 0 || comprasRisco > 0
+    canManage && (counts.critico > 0 || comprasRisco > 0)
       ? {
           tone: 'error' as const,
           text:
@@ -185,10 +211,15 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
                 ? `Existem ${counts.critico} obrigação(ões) em estado crítico (atraso superior a ${DIAS_PARA_CRITICO} dias).`
                 : `Há ${comprasRisco} ponto(s) de alto risco em aberto nas compras — reveja a fila "Compras".`,
         }
-      : counts.vencido > 0
+      : counts.vencido > 0 || (!canManage && comprasRisco > 0)
         ? {
             tone: 'warning' as const,
-            text: `${counts.vencido} obrigação(ões) com prazo vencido — organize a vistoria ou a renovação.`,
+            text:
+              counts.vencido > 0 && comprasRisco > 0
+                ? `${counts.vencido} obrigação(ões) com prazo vencido e ${comprasRisco} ponto(s) de alto risco nas compras.`
+                : counts.vencido > 0
+                  ? `${counts.vencido} obrigação(ões) com prazo vencido — organize a vistoria ou a renovação.`
+                  : `Há ${comprasRisco} ponto(s) de alto risco em aberto nas compras.`,
           }
         : null;
 
@@ -229,7 +260,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
   };
 
   return (
-    <div className="obligation-hub px-4 md:px-6 lg:px-8 space-y-6 md:space-y-8" id="obligation-hub">
+    <div className="obligation-hub space-y-6 md:space-y-8" id="obligation-hub">
       <div className="mb-6">
         <PageHeader
           eyebrow="Inspeções e obrigações legais"
@@ -238,6 +269,16 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
           layout="stack"
         />
       </div>
+
+      {!canManage && (
+        <div
+          className="rounded-2xl border border-surface-border bg-surface-muted/50 p-4 text-sm text-text-muted"
+          role="status"
+        >
+          <strong className="text-text-main">Modo leitura.</strong> Você pode consultar os serviços e status
+          (Em dia, Pendente, Vencido), mas não pode marcar obrigações como concluídas.
+        </div>
+      )}
 
       {(error || alertaTopo) && (
         <div className="space-y-2 mb-4">
@@ -260,8 +301,10 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
 
       {/* KPIs de Estado */}
       <Card padding="none" className="rounded-2xl border shadow-sm mb-4 md:mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 sm:p-5">
-          {(Object.keys(BUCKET_META) as ObrigacaoBucket[]).map((b) => (
+        <div
+          className={`grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 sm:p-5 ${canManage ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}
+        >
+          {displayBuckets.map((b) => (
             <button
               key={b}
               type="button"
@@ -291,11 +334,17 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Badge variant="neutral" className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium">
+              <Badge
+                variant="neutral"
+                className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium"
+              >
                 {comprasPendentes} em aberto
               </Badge>
               {comprasRisco > 0 && (
-                <Badge variant="danger" className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium">
+                <Badge
+                  variant="danger"
+                  className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium"
+                >
                   {comprasRisco} alto risco
                 </Badge>
               )}
@@ -305,7 +354,12 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
       )}
 
       {/* Tabs de Visão */}
-      <div className="flex gap-2 mt-4 mb-6 overflow-x-auto pb-2 scrollbar-thin" role="tablist" aria-label="Vista do hub">
+      <p className="text-xs text-text-muted md:hidden -mt-2 mb-1">Deslize para ver as vistas</p>
+      <div
+        className="flex gap-2 mt-4 mb-6 overflow-x-auto pb-2 scrollbar-thin"
+        role="tablist"
+        aria-label="Vista do hub"
+      >
         <button
           type="button"
           role="tab"
@@ -373,7 +427,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
             >
               Todas ({items.length})
             </button>
-            {(Object.keys(BUCKET_META) as ObrigacaoBucket[]).map((b) => (
+            {(displayBuckets as ObrigacaoBucket[]).map((b) => (
               <button
                 key={b}
                 type="button"
@@ -408,7 +462,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
                 </div>
               ) : (
                 filteredItems.map((it) => {
-                  const b = bucketForItem(it);
+                  const b = bucketForDisplay(it, mergeCriticoIntoVencido);
                   return (
                     <Card
                       key={it.id}
@@ -445,20 +499,22 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
                             )}
                           </dl>
                         </div>
-                        <Button
-                          variant={getButtonVariant(b)}
-                          size="sm"
-                          onClick={() => {
-                            if (b === 'em-dia') {
-                              void handleReopen(it.id);
-                            } else {
-                              setCompleteForId(it.id);
-                              setCompleteNotes('');
-                            }
-                          }}
-                        >
-                          {b === 'em-dia' ? 'Reabrir' : 'Marcar como feito'}
-                        </Button>
+                        {canManage ? (
+                          <Button
+                            variant={getButtonVariant(b)}
+                            size="sm"
+                            onClick={() => {
+                              if (b === 'em-dia') {
+                                void handleReopen(it.id);
+                              } else {
+                                setCompleteForId(it.id);
+                                setCompleteNotes('');
+                              }
+                            }}
+                          >
+                            {b === 'em-dia' ? 'Reabrir' : 'Marcar como feito'}
+                          </Button>
+                        ) : null}
                       </div>
                     </Card>
                   );
@@ -483,9 +539,12 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
                   <h3 className="font-semibold text-text-main mb-3">{formatMonthPt(key)}</h3>
                   <ul className="space-y-3">
                     {group.map((it) => {
-                      const b = bucketForItem(it);
+                      const b = bucketForDisplay(it, mergeCriticoIntoVencido);
                       return (
-                        <li className="rounded-xl border border-surface-border bg-surface-muted/30 p-3" key={it.id}>
+                        <li
+                          className="rounded-xl border border-surface-border bg-surface-muted/30 p-3"
+                          key={it.id}
+                        >
                           <div className="flex items-start gap-3">
                             <span
                               className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${
@@ -526,13 +585,13 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
           <Card padding="lg" hoverEffect={false} className="rounded-2xl border shadow-sm mb-4 md:mb-6">
             <h2 className="font-semibold text-text-main mb-4">Documentação e validações nas compras</h2>
             {findingsError && <p className="text-sm text-status-error">{findingsError}</p>}
-            {!findingsError && findings.length === 0 ? (
+            {!findingsError && sortedFindings.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <p className="text-text-muted">Nenhuma pendência global neste momento.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {findings.map((r, i) => {
+                {sortedFindings.map((r, i) => {
                   const eid = strRow(r, 'expenseId', 'ExpenseId');
                   const title = strRow(r, 'title', 'Title');
                   const rule = strRow(r, 'ruleCode', 'RuleCode');
@@ -563,12 +622,22 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
                           </p>
                         </div>
                         {eid !== '—' && (
-                          <Link
-                            to={`/conformidades/despesa/${encodeURIComponent(eid)}`}
-                            className="btn-primary"
-                          >
-                            Resolver
-                          </Link>
+                          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                            <Link
+                              to={`/compras/${encodeURIComponent(eid)}`}
+                              className="btn-primary text-center"
+                            >
+                              Abrir despesa
+                            </Link>
+                            {canManage && (
+                              <Link
+                                to={`/conformidades/despesa/${encodeURIComponent(eid)}`}
+                                className="inline-flex items-center justify-center rounded-xl border border-surface-border bg-surface-background px-4 py-2 text-sm font-medium text-brand-primary hover:bg-surface-muted"
+                              >
+                                Conformidade
+                              </Link>
+                            )}
+                          </div>
                         )}
                       </div>
                     </Card>
@@ -622,7 +691,13 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
                 className="w-full mt-2 rounded-xl border border-surface-border bg-surface-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
               />
             </label>
-            <Button type="submit" variant="primary" fullWidth disabled={adding || !condominioId} className="mt-2">
+            <Button
+              type="submit"
+              variant="primary"
+              fullWidth
+              disabled={adding || !condominioId}
+              className="mt-2"
+            >
               {adding ? 'Salvando…' : 'Adicionar à lista'}
             </Button>
           </form>
@@ -630,7 +705,7 @@ const ComplianceObrigacoesHubPage: React.FC = () => {
       </Card>
 
       {/* Modal de Confirmação */}
-      {completeForId && (
+      {canManage && completeForId && (
         <Modal
           open={!!completeForId}
           onClose={() => setCompleteForId(null)}

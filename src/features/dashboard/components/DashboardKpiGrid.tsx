@@ -6,6 +6,15 @@ import { cn } from '../../../lib/cn';
 const moneyBr = (n: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 
+/** Reduz tipografia conforme o comprimento do valor (evita overflow em moeda longa). */
+function kpiValueTextClass(value: string): string {
+  const len = value.length;
+  if (len > 18) return 'text-sm sm:text-base';
+  if (len > 14) return 'text-base sm:text-lg';
+  if (len > 11) return 'text-lg sm:text-xl';
+  return 'text-xl sm:text-2xl';
+}
+
 type KpiTone = 'economy' | 'alerts' | 'audits' | 'suppliers';
 
 const TONE_STYLES: Record<KpiTone, { icon: LucideIcon; iconWrap: string; iconColor: string }> = {
@@ -44,23 +53,35 @@ function KpiCard({ tone, label, value, hint }: KpiCardProps) {
   return (
     <article
       className={cn(
-        'flex items-start gap-3 sm:gap-4 rounded-xl border border-surface-border bg-surface-card p-4 sm:p-5',
+        'min-w-0 overflow-hidden rounded-xl border border-surface-border bg-surface-card p-4 sm:p-5',
         'shadow-macro-sm transition-shadow duration-200 ease-in-out',
         'hover:border-brand-primary/25 hover:shadow-macro-md'
       )}
     >
-      <div
-        className={cn('flex h-10 sm:h-11 w-10 sm:w-11 shrink-0 items-center justify-center rounded-lg sm:rounded-xl', iconWrap)}
-        aria-hidden
+      <div className="flex min-w-0 items-center gap-3">
+        <div
+          className={cn(
+            'flex h-10 sm:h-11 w-10 sm:w-11 shrink-0 items-center justify-center rounded-lg sm:rounded-xl',
+            iconWrap
+          )}
+          aria-hidden
+        >
+          <Icon className={cn('h-5 w-5', iconColor)} />
+        </div>
+        <p className="min-w-0 text-xs font-semibold uppercase tracking-wide text-text-muted">{label}</p>
+      </div>
+      <p
+        className={cn(
+          'mt-3 min-w-0 break-words font-bold tabular-nums leading-tight tracking-tight text-text-main',
+          kpiValueTextClass(value)
+        )}
+        title={value}
       >
-        <Icon className={cn('h-5 w-5', iconColor)} />
-        <Icon className={cn('h-4 sm:h-5 w-4 sm:w-5', iconColor)} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">{label}</p>
-        <p className="mt-2 text-lg sm:text-2xl font-bold tabular-nums tracking-tight text-text-main">{value}</p>
-        <p className="mt-1.5 text-xs sm:text-sm leading-snug text-text-muted">{hint}</p>
-      </div>
+        {value}
+      </p>
+      <p className="mt-1.5 min-w-0 break-words text-xs leading-snug text-text-muted sm:text-sm" title={hint}>
+        {hint}
+      </p>
     </article>
   );
 }
@@ -73,7 +94,7 @@ interface DashboardKpiGridProps {
 export function DashboardKpiGrid({ kpis, highPriorityCount }: DashboardKpiGridProps) {
   return (
     <section
-      className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+      className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:[grid-template-columns:repeat(4,minmax(0,1fr))] [&>article]:min-w-0"
       aria-label="Indicadores principais"
     >
       <KpiCard

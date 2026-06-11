@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Button } from './Button';
 import { motion } from 'framer-motion';
 
@@ -8,6 +9,8 @@ export interface EmptyStateProps {
   description?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** Atalho de navegação em vez de callback (ex.: ir para Auditoria). */
+  actionTo?: string;
 }
 
 /**
@@ -17,7 +20,7 @@ export interface EmptyStateProps {
  * - CTA claro para caminho de saída funcional
  * - Layout centralizado com respiro adequado
  */
-export function EmptyState({ icon, title, description, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({ icon, title, description, actionLabel, onAction, actionTo }: EmptyStateProps) {
   return (
     <div className="flex min-h-[400px] flex-col items-center justify-center px-4 text-center">
       {/* Ícone centralizado — Lucide React consistente */}
@@ -36,11 +39,17 @@ export function EmptyState({ icon, title, description, actionLabel, onAction }: 
       {description && <p className="mt-2 max-w-md text-sm text-slate-500">{description}</p>}
 
       {/* CTA — apenas quando definido */}
-      {actionLabel && onAction && (
+      {actionLabel && actionTo ? (
+        <Link to={actionTo} className="mt-6 inline-block">
+          <Button variant="primary" size="md">
+            {actionLabel}
+          </Button>
+        </Link>
+      ) : actionLabel && onAction ? (
         <Button onClick={onAction} className="mt-6" variant="primary" size="md">
           {actionLabel}
         </Button>
-      )}
+      ) : null}
     </div>
   );
 }

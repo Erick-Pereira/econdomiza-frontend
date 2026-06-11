@@ -6,8 +6,10 @@ import { Button } from '../components/ui';
 import { DashboardAlertsPanel } from '../features/dashboard/components/DashboardAlertsPanel';
 import { DashboardComplianceCard } from '../features/dashboard/components/DashboardComplianceCard';
 import { DashboardKpiGrid } from '../features/dashboard/components/DashboardKpiGrid';
+import { DashboardMonthlyChart } from '../features/dashboard/components/DashboardMonthlyChart';
 import { DashboardPageSkeleton } from '../features/dashboard/components/DashboardPageSkeleton';
 import { useDashboardData } from '../features/dashboard/hooks/useDashboardData';
+import { useDashboardMonthlyChart } from '../features/dashboard/hooks/useDashboardMonthlyChart';
 import { cn } from '../lib/cn';
 
 const DashboardPage: React.FC = () => {
@@ -21,6 +23,7 @@ const DashboardPage: React.FC = () => {
     isFetching,
     refetch,
   } = useDashboardData();
+  const monthlyChart = useDashboardMonthlyChart(kpis?.year);
 
   if (isInitialLoading) {
     return <DashboardPageSkeleton />;
@@ -76,6 +79,13 @@ const DashboardPage: React.FC = () => {
       )}
 
       <DashboardKpiGrid kpis={kpis} highPriorityCount={highPriorityCount} />
+
+      <DashboardMonthlyChart
+        series={monthlyChart.series}
+        year={monthlyChart.year}
+        isLoading={monthlyChart.isLoading}
+        error={monthlyChart.error}
+      />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_0.9fr]">
         <DashboardAlertsPanel alerts={alerts} fetchError={alertsFetchError} />

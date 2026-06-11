@@ -138,23 +138,52 @@ export function slugSeverity(sev: string): string {
   return 'info';
 }
 
-export function sortDeliveriesRecent(items: DeliveryRow[]): DeliveryRow[] {
-  const rank = (r: DeliveryRow) => {
-    const p = deliveryPriority(r);
-    if (p === 'critico') return 0;
-    if (p === 'atencao') return 1;
-    return 2;
-  };
-  const t = (r: DeliveryRow) => {
-    const s = pickStr(r, 'createdAt', 'CreatedAt', 'sentAt', 'SentAt');
+export function deliveryTimestampMs(r: DeliveryRow): number {
+  for (const k of ['sentAt', 'SentAt', 'createdAt', 'CreatedAt', 'updatedAtUtc', 'UpdatedAtUtc']) {
+    const s = pickStr(r, k);
+    if (s === '—') continue;
     const n = new Date(s).getTime();
-    return Number.isFinite(n) ? n : 0;
-  };
-  return [...items].sort((a, b) => {
-    const byDate = t(b) - t(a);
-    if (byDate !== 0) return byDate;
-    return rank(a) - rank(b);
-  });
+    if (Number.isFinite(n)) return n;
+  }
+  return 0;
+}
+
+/** Mais recentes primeiro (data de envio ou criação). */
+export function sortDeliveriesRecent(items: DeliveryRow[]): DeliveryRow[] {
+  return [...items].sort((a, b) => deliveryTimestampMs(b) - deliveryTimestampMs(a));
+}
+
+function readExpenseIdFromContext(contextJson: string): string | null {
+  if (!contextJson || contextJson === '—') return null;
+  try {
+    const o = JSON.parse(contextJson) as Record<string, unknown>;
+    const raw = o.expenseId ?? o.ExpenseId;
+    if (raw == null || String(raw).trim() === '') return null;
+    return String(raw).trim();
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve link operacional — prioriza despesa/NF em vez de insights legado. */
+export function resolveNotificationContextLink(row: DeliveryRow): string | null {
+  const fromContext = readExpenseIdFromContext(pickStr(row, 'contextJson', 'ContextJson'));
+  if (fromContext) return `/compras/${encodeURIComponent(fromContext)}`;
+
+  const opLink = pickStr(row, 'operationalLink', 'OperationalLink');
+  if (opLink === '—' || !opLink.startsWith('/')) return null;
+  if (opLink.startsWith('/insights')) {
+    try {
+      const o = JSON.parse(pickStr(row, 'contextJson', 'ContextJson')) as Record<string, unknown>;
+      const alertId = o.alertId ?? o.AlertId;
+      if (alertId != null && String(alertId).trim() !== '')
+        return `/alertas?alertId=${encodeURIComponent(String(alertId))}`;
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }
+  return opLink;
 }
 
 export const EMPTY_DASHBOARD: DashboardCounts = {

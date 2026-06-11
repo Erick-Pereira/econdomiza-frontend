@@ -21,11 +21,26 @@ export const EMPTY_VARIANTS = {
   ),
 
   /** Sem dados — lista vazia (não erro) */
-  emptyList: ({ title, description }: { title: string; description?: string }) => (
+  emptyList: ({
+    title,
+    description,
+    actionLabel,
+    onAction,
+    actionTo,
+  }: {
+    title: string;
+    description?: string;
+    actionLabel?: string;
+    onAction?: () => void;
+    actionTo?: string;
+  }) => (
     <EmptyState
       icon={<Inbox className="h-12 w-12 text-slate-400" />}
       title={title || 'Lista vazia'}
       description={description || 'Ainda não há itens nesta lista.'}
+      actionLabel={actionLabel}
+      onAction={onAction}
+      actionTo={actionTo}
     />
   ),
 

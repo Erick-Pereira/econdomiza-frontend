@@ -7,7 +7,8 @@ import { EcondomizaApi } from '../../../services';
 import { useAuth } from '../../../context/AuthContext';
 import { useLoginForm } from '../hooks/useLoginForm';
 import { useEstablishGatewaySession } from '../hooks/useEstablishGatewaySession';
-import { AUTH_COPY } from '../constants';
+import { AUTH_COPY, isWrongCondominioLoginError } from '../constants';
+import { hasRole } from '../../../lib/permissions/rbac';
 import { PRODUCT_COPY } from '../../../lib/product-copy';
 import { CondominioPickerField } from './CondominioPickerField';
 import { AuthScreenSwitch } from './AuthScreenSwitch';
@@ -83,12 +84,18 @@ export const LoginForm: React.FC = () => {
         const loginRes = await EcondomizaApi.login(tid, formData.email.trim(), formData.password);
         const sessionResult = await establishFromEnvelope(loginRes.data);
         if (sessionResult.ok) {
-          navigate('/dashboard', { replace: true });
+          const role = sessionResult.profile?.role;
+          navigate(hasRole(role, 'MORADOR') ? '/morador' : '/dashboard', { replace: true });
           return;
         }
         setErrors((prev) => ({ ...prev, general: sessionResult.message }));
       } catch (err: unknown) {
-        setErrors((prev) => ({ ...prev, general: formatApiError(err) }));
+        const message = formatApiError(err);
+        if (isWrongCondominioLoginError(message)) {
+          setErrors((prev) => ({ ...prev, tenantId: AUTH_COPY.wrongCondominio }));
+        } else {
+          setErrors((prev) => ({ ...prev, general: message }));
+        }
       } finally {
         setSubmitting(false);
       }
@@ -185,13 +192,7 @@ export const LoginForm: React.FC = () => {
                 {submitting ? (
                   <LoadingSpinner fullWidth message="A entrar…" />
                 ) : (
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    fullWidth
-                    disabled={!hasCondominio}
-                    size="lg"
-                  >
+                  <Button type="submit" variant="primary" fullWidth disabled={!hasCondominio} size="lg">
                     Entrar
                   </Button>
                 )}

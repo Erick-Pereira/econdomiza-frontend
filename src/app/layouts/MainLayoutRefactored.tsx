@@ -25,12 +25,6 @@ export function MainLayoutRefactored() {
   }, []);
 
   useEffect(() => {
-    if (!sidebarOpen) {
-      document.getElementById('main-menu-toggle')?.focus();
-    }
-  }, [sidebarOpen]);
-
-  useEffect(() => {
     document.body.style.overflow = sidebarOpen ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
@@ -71,7 +65,7 @@ export function MainLayoutRefactored() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeSidebarMobile}
-            className="fixed inset-0 z-[1250] bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-[1190] bg-black/40 backdrop-blur-sm"
             aria-hidden="true"
           />
         )}
@@ -83,7 +77,7 @@ export function MainLayoutRefactored() {
           initial="hidden"
           animate="visible"
           id="sidebar"
-          className={`fixed left-0 top-0 z-[1200] flex h-full w-[252px] flex-col bg-gradient-to-br from-brand-primary to-brand-secondary p-4 shadow-lg transition-transform duration-300 ease-in-out md:relative md:translate-x-0 lg:shadow-xl ${
+          className={`fixed left-0 top-0 z-[1300] flex h-full w-[252px] flex-col bg-gradient-to-br from-brand-primary to-brand-secondary p-4 shadow-lg transition-transform duration-300 ease-in-out md:relative md:translate-x-0 lg:shadow-xl ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
           aria-label="Navegação principal"
@@ -139,9 +133,9 @@ export function MainLayoutRefactored() {
 
         <main
           id="main-content"
-          className={`app-shell__main flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto ${sidebarOpen ? 'ml-[252px] md:ml-0' : ''}`}
+          className="app-shell__main relative isolate flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
         >
-          <header className="app-shell__header sticky top-0 z-[1300] flex min-h-[4.5rem] w-full items-center gap-4 px-6">
+          <header className="app-shell__header sticky top-0 z-[1100] flex min-h-[4.5rem] w-full items-center gap-3 px-4 sm:gap-4 sm:px-6">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
@@ -171,7 +165,7 @@ export function MainLayoutRefactored() {
             )}
           </header>
 
-          <div className="flex w-full flex-1 justify-center px-5 py-6 sm:py-7 lg:py-8">
+          <div className="flex w-full flex-1 justify-center px-4 py-5 sm:px-5 sm:py-6 lg:px-6 lg:py-8">
             <div className="w-full max-w-[1080px]">
               <LazyShell>
                 <AuthenticatedRoutes userRole={profile?.role} defaultRoute={defaultRoute} />

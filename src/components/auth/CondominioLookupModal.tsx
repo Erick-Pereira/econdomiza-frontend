@@ -32,15 +32,10 @@ export function CondominioLookupModal({
     setLoading(true);
     setError(null);
     try {
-      console.log('[CondominioLookupModal] Carregando todos os condomínios...');
       const res = await EcondomizaApi.lookupCondominios('');
-      console.log('[CondominioLookupModal] Resposta de carregamento:', JSON.stringify(res.data, null, 2));
-
       const parsed = parseLookupData(res.data);
-      console.debug('[CondominioLookupModal] Condomínios carregados:', parsed.length, 'resultados');
       setAllRows(parsed);
     } catch (err) {
-      console.error('[CondominioLookupModal] Erro ao carregar condomínios:', err);
       setError(formatApiError(err));
       setAllRows([]);
     } finally {
@@ -74,26 +69,18 @@ export function CondominioLookupModal({
   }, [open, onClose]);
 
   const runSearch = useCallback(async () => {
-    console.log('[CondominioLookupModal] runSearch chamada, searchTerm:', searchTerm);
     const term = searchTerm.trim();
     if (term.length < 2) {
-      console.log('[CondominioLookupModal] Termo muito curto:', term.length);
       setError('Digite pelo menos 2 caracteres para buscar.');
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      console.log('[CondominioLookupModal] Chamando API com termo:', term);
       const res = await EcondomizaApi.lookupCondominios(term);
-      console.log('[CondominioLookupModal] Resposta da API completa:', JSON.stringify(res, null, 2));
-      console.log('[CondominioLookupModal] res.data:', JSON.stringify(res.data, null, 2));
-
       const parsed = parseLookupData(res.data);
-      console.log('[CondominioLookupModal] Dados processados:', parsed.length, 'resultados');
       setAllRows(parsed);
     } catch (err) {
-      console.error('[CondominioLookupModal] Erro na busca de condomínios:', err);
       setError(formatApiError(err));
       setAllRows([]);
     } finally {
@@ -149,15 +136,7 @@ export function CondominioLookupModal({
                 }
               }}
             />
-            <Button
-              type="button"
-              variant="primary"
-              onClick={() => {
-                console.log('[CondominioLookupModal] Botão de busca clicado, searchTerm:', searchTerm);
-                void runSearch();
-              }}
-              disabled={loading}
-            >
+            <Button type="button" variant="primary" onClick={() => void runSearch()} disabled={loading}>
               {loading ? '…' : 'Buscar'}
             </Button>
           </div>

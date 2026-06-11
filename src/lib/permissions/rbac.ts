@@ -73,6 +73,11 @@ export function canViewCompras(role: string | undefined): boolean {
   return hasRole(role, 'ADMIN', 'SINDICO', 'CONSELHO');
 }
 
+/** Pode ver detalhe de despesa/NF (Morador: somente leitura via auditoria). */
+export function canViewExpenseDetail(role: string | undefined): boolean {
+  return hasRole(role, 'ADMIN', 'SINDICO', 'CONSELHO', 'MORADOR');
+}
+
 /** Pode gerir Compras (criar/editar/deletar). */
 export function canManageCompras(role: string | undefined): boolean {
   return hasRole(role, 'ADMIN');

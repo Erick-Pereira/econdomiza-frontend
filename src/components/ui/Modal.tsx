@@ -46,7 +46,7 @@ export function Modal({ open, onClose, title, children, lead, footer, describedB
 
   return createPortal(
     <div
-      className="condo-modal fixed inset-0 z-50 flex min-h-screen items-center justify-center overflow-y-auto px-4 py-6 sm:px-6"
+      className="condo-modal fixed inset-0 z-[1400] flex min-h-screen items-center justify-center overflow-y-auto px-4 py-6 sm:px-6"
       role="presentation"
     >
       <button
@@ -79,7 +79,11 @@ export function Modal({ open, onClose, title, children, lead, footer, describedB
         </div>
         {lead ? <p className="condo-modal__lead mb-4 text-sm text-text-muted">{lead}</p> : null}
         <div className="condo-modal__body space-y-6">{children}</div>
-        {footer ? <div className="condo-modal__actions mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">{footer}</div> : null}
+        {footer ? (
+          <div className="condo-modal__actions mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+            {footer}
+          </div>
+        ) : null}
       </motion.div>
     </div>,
     document.body

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { formatApiError } from '../../../lib/api-error-message';
 import { EcondomizaApi } from '../../../services';
 import { extractFindings, mapExpenseComplianceRaw } from '../lib/expense-compliance-map';
@@ -15,7 +16,7 @@ export function useExpenseCompliance(expenseId: string) {
   });
 
   const raw = query.data ?? null;
-  const findings = extractFindings(raw);
+  const findings = useMemo(() => extractFindings(raw), [raw]);
   const errorMessage = query.isError ? formatApiError(query.error) : null;
 
   return {

@@ -20,6 +20,7 @@ import {
   severityPt,
   sortDeliveriesRecent,
   statusPt,
+  resolveNotificationContextLink,
 } from '../../features/notificacoes/lib/notifications-model';
 import type { DeliveryListParams } from '../../features/notificacoes/query-keys';
 import NotificationsPreferencesPanel from './NotificationsPreferencesPanel';
@@ -94,7 +95,7 @@ function DeliveryCard({
   const canRetry = st === 'Failed' && id !== '—';
   const sum = pickStr(row, 'payloadSummary', 'PayloadSummary');
   const channel = pickStr(row, 'channel', 'Channel');
-  const opLink = pickStr(row, 'operationalLink', 'OperationalLink');
+  const contextPath = resolveNotificationContextLink(row);
 
   return (
     <li
@@ -125,16 +126,14 @@ function DeliveryCard({
             {actionId === id ? 'A reenviar…' : 'Tentar de novo'}
           </Button>
         ) : null}
-        {opLink !== '—' && (
-          <a
+        {contextPath ? (
+          <Link
+            to={contextPath}
             className="inline-flex items-center rounded-lg border border-surface-border bg-surface-background px-3 py-1.5 text-sm font-medium text-text-main shadow-atomic transition hover:bg-surface-muted"
-            href={opLink}
-            target="_blank"
-            rel="noreferrer"
           >
-            Abrir contexto
-          </a>
-        )}
+            Abrir despesa
+          </Link>
+        ) : null}
         {onFilterStatus ? (
           <Button type="button" size="sm" variant="outline" onClick={() => onFilterStatus(st)}>
             Ver no histórico
@@ -239,8 +238,8 @@ const NotificationsCentralPage: React.FC = () => {
 
   const displayRows = useMemo(() => {
     const items = rawPage?.items ?? [];
-    return visao === 'recentes' ? sortDeliveriesRecent(items) : items;
-  }, [rawPage, visao]);
+    return sortDeliveriesRecent(items);
+  }, [rawPage]);
 
   const onRetry = async (deliveryId: string) => {
     if (!userId) return;

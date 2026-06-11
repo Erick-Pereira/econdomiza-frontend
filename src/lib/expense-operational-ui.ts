@@ -116,7 +116,19 @@ export function humanizeApprovalPt(code: string): string {
   }
 }
 
-export function humanizeSettlementPt(code: string): string {
+/** Saldo exibível: encerradas por aprovação não têm valor em aberto. */
+export function effectiveOutstandingBalance(
+  approvalCode: string,
+  outstanding: number | null | undefined
+): number {
+  if (approvalCode === 'Cancelled' || approvalCode === 'Rejected') return 0;
+  const n = Number(outstanding);
+  return Number.isFinite(n) ? n : 0;
+}
+
+export function humanizeSettlementPt(code: string, approvalCode?: string): string {
+  if (approvalCode === 'Cancelled') return 'Cancelada';
+  if (approvalCode === 'Rejected') return 'Encerrada';
   switch (code) {
     case 'Unpaid':
       return 'Em aberto';
@@ -155,6 +167,16 @@ export function readAllowedFlag(source: Record<string, unknown>, ...keys: string
     }
   }
   return false;
+}
+
+/** Motivo de ação desabilitada (API `governance.allowedActions.disabledReasons`). */
+export function readDisabledReason(allowed: Record<string, unknown>, actionKey: string): string | null {
+  const dr = allowed.disabledReasons ?? allowed.DisabledReasons;
+  const map = asRecord(dr);
+  if (!map) return null;
+  const v = map[actionKey];
+  if (v == null || String(v).trim() === '') return null;
+  return String(v);
 }
 
 /** Extrai GUID de um objeto de pagamento/item. */

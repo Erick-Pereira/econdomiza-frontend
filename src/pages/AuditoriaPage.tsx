@@ -10,6 +10,7 @@ import { AuditoriaStatsGrid } from '../features/auditoria/components/AuditoriaSt
 import { AuditoriaUploadPanel } from '../features/auditoria/components/AuditoriaUploadPanel';
 import { useAuditoriaData } from '../features/auditoria/hooks/useAuditoriaData';
 import { roleAllowsAuditDocumentUpload } from '../features/auditoria';
+import { ExpenseIntentFilterBar } from '../features/compras/components/ExpenseIntentFilterBar';
 import { cn } from '../lib/cn';
 
 const AuditoriaPage: React.FC = () => {
@@ -72,6 +73,8 @@ const AuditoriaPage: React.FC = () => {
       )}
 
       <AuditoriaStatsGrid stats={stats} />
+
+      <ExpenseIntentFilterBar mode="links" />
 
       {canUpload ? (
         <AuditoriaUploadPanel

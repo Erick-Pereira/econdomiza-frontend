@@ -51,10 +51,12 @@ lerna-debug.log*
 .prettiercache
 .husky
 
-# Testes (Jest, Vitest, Cypress)
+# Testes (Jest, Vitest, Cypress, Playwright)
 coverage/
 .nyc_output/
 .cypress-cache/
+playwright-report/
+test-results/
 
 # -----------------------------------------------------------------------------
 # Configurações de IDEs e Sistema Operacional

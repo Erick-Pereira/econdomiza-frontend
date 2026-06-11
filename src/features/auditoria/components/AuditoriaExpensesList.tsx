@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight, FileSearch } from 'lucide-react';
 import { Badge } from '../../../components/ui';
+import { EMPTY_VARIANTS } from '../../../components/ui/empty-state-variants';
 import {
   approvalBadgeVariant,
   approvalStatusLabel,
@@ -32,7 +33,7 @@ export function AuditoriaExpensesList({ expenses, fetchError, readOnly }: Audito
           <p className="mt-0.5 text-sm text-text-muted">
             {readOnly
               ? 'Consulta de despesas processadas — sem permissão de upload.'
-              : 'Documentos ingeridos e despesas normalizadas pelo pipeline.'}
+              : 'Documentos ingeridos e despesas normalizadas — use os atalhos acima para aprovação e filtros por intenção.'}
           </p>
         </div>
         <span className="text-sm tabular-nums text-text-muted">{expenses.length} registo(s)</span>
@@ -46,15 +47,14 @@ export function AuditoriaExpensesList({ expenses, fetchError, readOnly }: Audito
             <p className="mt-1 text-sm text-text-muted">{fetchError}</p>
           </div>
         ) : expenses.length === 0 ? (
-          <div className="rounded-lg bg-surface-muted px-4 py-10 text-center">
-            <FileSearch className="mx-auto mb-2 h-8 w-8 text-text-muted" aria-hidden />
-            <p className="text-sm font-medium text-text-main">Nenhuma despesa encontrada</p>
-            <p className="mt-1 text-sm text-text-muted">
-              {readOnly
-                ? 'Ainda não há despesas publicadas para consulta.'
-                : 'Envie o primeiro documento para iniciar a auditoria.'}
-            </p>
-          </div>
+          EMPTY_VARIANTS.emptyList({
+            title: 'Nenhuma despesa encontrada',
+            description: readOnly
+              ? 'Ainda não há despesas publicadas para consulta.'
+              : 'Envie o primeiro documento para iniciar a auditoria.',
+            actionLabel: readOnly ? undefined : 'Enviar documento',
+            actionTo: readOnly ? undefined : '/auditoria',
+          })
         ) : (
           <>
             {/* Desktop table */}
@@ -98,7 +98,11 @@ export function AuditoriaExpensesList({ expenses, fetchError, readOnly }: Audito
                       <td className="px-3 py-3 text-right">
                         <Link
                           to={`/compras/${encodeURIComponent(expense.id)}`}
-                          className="inline-flex items-center gap-1 text-sm font-medium text-brand-primary opacity-0 transition-opacity group-hover:opacity-100 hover:text-brand-secondary focus:opacity-100"
+                          className={`inline-flex items-center gap-1 text-sm font-medium text-brand-primary hover:text-brand-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 rounded ${
+                            readOnly
+                              ? 'opacity-100'
+                              : 'opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100'
+                          }`}
                         >
                           Detalhe
                           <ChevronRight className="h-4 w-4" aria-hidden />

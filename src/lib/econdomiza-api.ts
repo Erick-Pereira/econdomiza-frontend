@@ -40,6 +40,13 @@ export interface UploadDocumentResponse {
 export function extractUploadPipelineWarning(data: unknown): string | null {
   if (!data || typeof data !== 'object') return null;
   const row = data as Record<string, unknown>;
+  const deduplicated = row.deduplicated ?? row.Deduplicated;
+  if (deduplicated === true) {
+    const msg = row.message ?? row.Message;
+    if (typeof msg === 'string' && msg.trim()) return msg.trim();
+    return 'Este ficheiro já foi enviado para este condomínio (conteúdo idêntico). Para reprocessar como cópia nova, use reenvio forçado no upload.';
+  }
+
   const note = row.processingNote ?? row.ProcessingNote;
   const published = row.publishedDataIngestedEvent ?? row.PublishedDataIngestedEvent;
   if (typeof note === 'string' && note.trim()) return note.trim();
@@ -50,7 +57,7 @@ export function extractUploadPipelineWarning(data: unknown): string | null {
 }
 
 /**
- * Cliente HTTP do gateway SIMC-AG (substitui public/api.js no bundle Vite).
+ * Cliente HTTP do gateway Econdomiza (substitui public/api.js no bundle Vite).
  * Base: import.meta.env.VITE_SIMCAG_GATEWAY_URL ou window.SIMCAG_GATEWAY (runtime) ou origem atual.
  */
 
@@ -349,6 +356,11 @@ const EcondomizaApi = {
   async dashboardSummary(params?: { year?: number }): Promise<DashboardSummaryResult> {
     const y = params?.year ?? new Date().getFullYear();
     return fetchDashboardSummaryWithFallback((path, opts) => this.request(path, opts), y);
+  },
+
+  dashboardMonthly(year?: number) {
+    const y = year ?? new Date().getFullYear();
+    return this.request<Record<string, unknown>>(`/api/dashboard/monthly?year=${y}`);
   },
 
   listExpenses(filters: Record<string, unknown> = {}) {

@@ -14,6 +14,7 @@ type ComprasExpenseListItemProps = {
   expense: AuditoriaExpenseRow;
   canApprove: boolean;
   approvalPending: boolean;
+  inlineError?: string | null;
   onApprove: (id: string, approve: boolean) => void;
   formatMoney: (n: number) => string;
 };
@@ -22,6 +23,7 @@ export function ComprasExpenseListItem({
   expense,
   canApprove,
   approvalPending,
+  inlineError,
   onApprove,
   formatMoney,
 }: ComprasExpenseListItemProps) {
@@ -46,7 +48,7 @@ export function ComprasExpenseListItem({
               {expense.description}
             </p>
             <ChevronRight
-              className="mt-0.5 h-4 w-4 shrink-0 text-text-muted opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:opacity-100"
+              className="mt-0.5 h-4 w-4 shrink-0 text-text-muted opacity-100 transition-all duration-200 sm:opacity-0 sm:group-hover:translate-x-0.5 sm:group-hover:opacity-100"
               aria-hidden
             />
           </div>
@@ -61,6 +63,11 @@ export function ComprasExpenseListItem({
               {approvalStatusLabel(expense.approvalStatus)}
             </Badge>
           </div>
+          {inlineError ? (
+            <p className="mt-2 text-sm text-status-error" role="alert">
+              {inlineError}
+            </p>
+          ) : null}
         </div>
         <p className="text-lg font-semibold tabular-nums text-text-main lg:text-right">
           {formatMoney(expense.totalAmount)}
@@ -69,7 +76,7 @@ export function ComprasExpenseListItem({
 
       {showApproval && (
         <div
-          className="flex shrink-0 gap-2 px-5 pb-4 lg:absolute lg:right-5 lg:top-1/2 lg:-translate-y-1/2 lg:px-0 lg:pb-0"
+          className="flex w-full shrink-0 flex-col gap-2 px-5 pb-4 sm:flex-row lg:absolute lg:right-5 lg:top-1/2 lg:w-auto lg:-translate-y-1/2 lg:flex-row lg:px-0 lg:pb-0"
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
@@ -77,6 +84,7 @@ export function ComprasExpenseListItem({
             type="button"
             size="sm"
             variant="primary"
+            className="w-full sm:w-auto"
             disabled={approvalPending}
             onClick={() => onApprove(expense.id, true)}
             icon={<Check className="h-4 w-4" aria-hidden />}
@@ -87,6 +95,7 @@ export function ComprasExpenseListItem({
             type="button"
             size="sm"
             variant="danger"
+            className="w-full sm:w-auto"
             disabled={approvalPending}
             onClick={() => onApprove(expense.id, false)}
             icon={<X className="h-4 w-4" aria-hidden />}

@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { normalizeListPayload } from '../../../lib/api-normalize';
 import { formatApiError } from '../../../lib/api-error-message';
 import { EcondomizaApi } from '../../../services';
-import { parseComprasFilter } from '../lib/compras-filters';
+import { buildExpenseListParams } from '../../expenses/lib/expense-intent-filters';
+import { sortRowsByRecency } from '../../../lib/sort-by-date';
 import { comprasKeys } from '../query-keys';
 
 function extractExpenseRows(raw: unknown): Record<string, unknown>[] {
@@ -24,16 +25,13 @@ export function useComprasExpenses(filterKey: string) {
   return useQuery({
     queryKey: comprasKeys.list(filterKey),
     queryFn: async () => {
-      const filters: Record<string, unknown> = { page: 1, pageSize: 100 };
-      const parsed = parseComprasFilter(filterKey);
-      if (parsed.approvalStatus) filters.approvalStatus = parsed.approvalStatus;
-      if (parsed.processingStatus) filters.processingStatus = parsed.processingStatus;
+      const filters = buildExpenseListParams(filterKey);
       const res = await EcondomizaApi.listExpenses(filters);
       return res.data;
     },
     select: (data) => ({
       raw: data,
-      rows: extractExpenseRows(data),
+      rows: sortRowsByRecency(extractExpenseRows(data)),
     }),
     placeholderData: (previous) => previous,
   });

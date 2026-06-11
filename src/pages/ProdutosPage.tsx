@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageFatalErrorState } from '../components/layout/PageLoadStates';
 import { Button, Input, SkeletonLoading } from '../components/ui';
+import { EMPTY_VARIANTS } from '../components/ui/empty-state-variants';
 import { useProductCatalog } from '../features/produtos/hooks/useProductCatalog';
 import { formatApiError } from '../lib/api-error-message';
 import { cn } from '../lib/cn';
@@ -113,7 +114,10 @@ const ProdutosPage: React.FC = () => {
 
       <section className="rounded-xl border border-surface-border bg-surface-card shadow-macro-sm">
         {result.items.length === 0 ? (
-          <p className="px-5 py-12 text-center text-sm text-text-muted">Nenhum item no catálogo.</p>
+          EMPTY_VARIANTS.emptyList({
+            title: 'Nenhum produto no catálogo',
+            description: 'Ajuste a busca ou aguarde novas despesas processadas para popular o catálogo.',
+          })
         ) : (
           <ul className="divide-y divide-surface-border" role="list">
             {result.items.map((item) => (

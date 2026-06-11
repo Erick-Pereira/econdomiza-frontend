@@ -19,4 +19,14 @@ describe('extractUploadPipelineWarning', () => {
   it('returns null on successful publish', () => {
     expect(extractUploadPipelineWarning({ publishedDataIngestedEvent: true })).toBeNull();
   });
+
+  it('returns deduplicated message before generic publish failure', () => {
+    expect(
+      extractUploadPipelineWarning({
+        deduplicated: true,
+        publishedDataIngestedEvent: false,
+        message: 'Mesmo documento já foi ingerido para este tenant (hash idêntico).',
+      })
+    ).toBe('Mesmo documento já foi ingerido para este tenant (hash idêntico).');
+  });
 });

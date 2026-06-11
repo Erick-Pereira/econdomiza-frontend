@@ -85,6 +85,16 @@ export function bucketForItem(it: ObrigacaoItem): ObrigacaoBucket {
   return 'pendente';
 }
 
+/** Buckets visíveis para Morador (somente leitura — sem estado "Crítico" separado). */
+export const MORADOR_VIEW_BUCKETS: ObrigacaoBucket[] = ['pendente', 'em-dia', 'vencido'];
+
+/** Para UI de Morador, agrupa "crítico" em "vencido". */
+export function bucketForDisplay(it: ObrigacaoItem, mergeCriticoIntoVencido: boolean): ObrigacaoBucket {
+  const raw = bucketForItem(it);
+  if (mergeCriticoIntoVencido && raw === 'critico') return 'vencido';
+  return raw;
+}
+
 export async function resolveCondominioId(sessionTenantId: string): Promise<string> {
   const tid = sessionTenantId?.trim();
   if (tid) return tid;

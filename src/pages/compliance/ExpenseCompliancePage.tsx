@@ -35,9 +35,13 @@ const ExpenseCompliancePage: React.FC = () => {
   const [waiveDrafts, setWaiveDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (findings.length > 0) {
-      setEvidenceDrafts((prev) => ({ ...buildEvidenceDrafts(findings), ...prev }));
-    }
+    if (findings.length === 0) return;
+    const built = buildEvidenceDrafts(findings);
+    setEvidenceDrafts((prev) => {
+      const unchanged = Object.keys(built).every((id) => prev[id] === built[id]);
+      if (unchanged) return prev;
+      return { ...built, ...prev };
+    });
   }, [findings]);
 
   const error = actionError ?? queryError;

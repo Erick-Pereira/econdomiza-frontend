@@ -2,7 +2,7 @@ import React, { lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import NotFoundPage from '../pages/NotFoundPage';
 import { AUTHENTICATED_PAGE_LOADERS } from './authenticated-route-registry';
-import { roleCanAccessRoute, hasRole } from '../lib/permissions/rbac';
+import { canViewExpenseDetail, roleCanAccessRoute, hasRole } from '../lib/permissions/rbac';
 
 const DashboardPage = lazy(AUTHENTICATED_PAGE_LOADERS['/dashboard']);
 const ComprasPage = lazy(AUTHENTICATED_PAGE_LOADERS['/compras']);
@@ -32,13 +32,16 @@ function RoleGuard({
   userRole,
   defaultRoute,
   children,
+  canAccess,
 }: {
   path: string;
   userRole?: string;
   defaultRoute?: string;
   children: React.ReactNode;
+  canAccess?: (role?: string) => boolean;
 }) {
-  if (!roleCanAccessRoute(userRole, path)) {
+  const allowed = canAccess ? canAccess(userRole) : roleCanAccessRoute(userRole, path);
+  if (!allowed) {
     return <Navigate to={defaultRoute ?? '/configuracoes'} replace />;
   }
   return <>{children}</>;
@@ -62,13 +65,7 @@ const AuthenticatedRoutes: React.FC<Props> = ({ defaultRoute = '/dashboard', use
     />
     <Route
       path="/morador"
-      element={
-        hasRole(userRole, 'MORADOR') ? (
-          <MoradorHomePage />
-        ) : (
-          <Navigate to={defaultRoute} replace />
-        )
-      }
+      element={hasRole(userRole, 'MORADOR') ? <MoradorHomePage /> : <Navigate to={defaultRoute} replace />}
     />
     <Route
       path="/dashboard"
@@ -82,7 +79,12 @@ const AuthenticatedRoutes: React.FC<Props> = ({ defaultRoute = '/dashboard', use
     <Route
       path="/compras/:expenseId"
       element={
-        <RoleGuard path="/compras" userRole={userRole} defaultRoute={defaultRoute}>
+        <RoleGuard
+          path="/compras"
+          userRole={userRole}
+          defaultRoute={defaultRoute}
+          canAccess={canViewExpenseDetail}
+        >
           <ExpenseOperationalDetailPage />
         </RoleGuard>
       }

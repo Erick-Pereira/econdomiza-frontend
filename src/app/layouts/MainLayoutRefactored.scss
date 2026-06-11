@@ -35,13 +35,6 @@ header.app-shell__header {
   backdrop-filter: blur(12px);
 }
 
-@media (max-width: 767px) {
-  main#main-content.app-shell__main {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-}
-
 @media print {
   #sidebar {
     display: none;

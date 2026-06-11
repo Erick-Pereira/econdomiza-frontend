@@ -9,6 +9,8 @@ export function isValidTenantGuid(value: string): boolean {
 /** Mensagens partilhadas entre login e registo. */
 export const AUTH_COPY = {
   condominioRequired: 'Selecione o condomínio em Buscar.',
+  wrongCondominio:
+    'Seu usuário não está vinculado ao condomínio selecionado. Verifique a opção escolhida e tente novamente.',
   emailPasswordRequired: {
     email: 'E-mail é obrigatório',
     password: 'Senha é obrigatória',
@@ -17,3 +19,7 @@ export const AUTH_COPY = {
   loginNoProfile: 'Não foi possível carregar o perfil após o login.',
   tenantRequired: 'Selecione o condomínio em Buscar.',
 } as const;
+
+export function isWrongCondominioLoginError(message: string): boolean {
+  return message.toLowerCase().includes('vinculado ao condomínio');
+}

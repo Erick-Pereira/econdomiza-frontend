@@ -71,9 +71,9 @@ const VARIANT_STYLES: Record<ButtonVariant, string[]> = {
 // ESTILOS POR TAMANHO — Grade atômica (múltiplos de 4px/8px)
 // ============================================
 const SIZE_STYLES: Record<ButtonSize, string[]> = {
-  sm: ['px-3', 'py-1.5', 'text-sm'], // 6px x 12px + 14px
-  md: ['px-4', 'py-2', 'text-sm'], // 8px x 16px + 14px
-  lg: ['px-6', 'py-3', 'text-base'], // 12px x 24px + 16px
+  sm: ['px-3', 'py-2', 'text-sm', 'min-h-[2.75rem]'],
+  md: ['px-4', 'py-2.5', 'text-sm', 'min-h-[2.75rem]'],
+  lg: ['px-6', 'py-3', 'text-base', 'min-h-[3rem]'],
 };
 
 // ============================================

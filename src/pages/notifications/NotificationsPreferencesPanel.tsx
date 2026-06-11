@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { formatApiError } from '../../lib/api-error-message';
 import {
   useNotificationPreferences,
@@ -48,9 +48,14 @@ const NotificationsPreferencesPanel: React.FC<NotificationsPreferencesPanelProps
   const [form, setForm] = useState<PreferencesFormState>(defaultForm);
   const [actionError, setActionError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
+  const syncedDefaultsKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (formDefaults) setForm(formDefaults);
+    if (!formDefaults) return;
+    const key = JSON.stringify(formDefaults);
+    if (syncedDefaultsKeyRef.current === key) return;
+    syncedDefaultsKeyRef.current = key;
+    setForm(formDefaults);
   }, [formDefaults]);
 
   const error = actionError ?? queryError;
